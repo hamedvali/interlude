@@ -214,6 +214,27 @@ def installed_app_id():
     return app_id
 
 
+def ensure_baseline():
+    """Snapshot the profile's pre-install app ids so a toast-install shows up.
+
+    The in-app install toast lets the user install Interlude from a normal
+    window; afterward installed_app_id() finds it by exclusion (present −
+    baseline). We can only record a useful baseline once Chrome has seeded its
+    default apps, so we wait until the profile has at least one app and no
+    baseline exists yet. `interlude install` records this explicitly too.
+    """
+    if os.path.exists(APP_BASELINE):
+        return
+    ids = _manifest_app_ids()
+    if not ids:
+        return  # fresh profile not seeded yet; try again on a later open
+    try:
+        with open(APP_BASELINE, "w") as f:
+            json.dump(sorted(ids), f)
+    except OSError:
+        pass
+
+
 # ---------- server lifecycle ----------
 def ensure_server():
     port = read_port()
@@ -254,11 +275,19 @@ def do_open():
         subprocess.Popen(["open", url], stdin=subprocess.DEVNULL,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return
+    ensure_baseline()
     app_id = installed_app_id()
-    launch = f"--app-id={app_id}" if app_id else f"--app={url}"
+    if app_id:
+        # Installed: launch the PWA (own dock icon, clean standalone frame).
+        launch = [f"--app-id={app_id}"]
+    else:
+        # Not installed yet: open a NORMAL window so Chrome fires
+        # beforeinstallprompt and the in-app "Install" toast can offer a
+        # one-click install. Switches to --app-id automatically afterward.
+        launch = ["--new-window", url]
     args = [
         chrome,
-        launch,
+        *launch,
         f"--user-data-dir={CHROME_PROFILE}",
         "--window-size=1240,840",
         "--no-first-run",

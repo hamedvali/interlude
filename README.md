@@ -53,15 +53,19 @@ interlude version      # print the version
 If `~/.local/bin` isn't on your `PATH`, run it directly:
 `python3 ~/.interlude/interlude.py <command>`.
 
-### Give it a dock icon (optional)
+### Give it a dock icon
 
-By default the window opens in a temporary Chrome app profile. To make it a
-proper standalone app with its own dock icon:
+The **first time** the window opens, a small **"Install Interlude"** toast slides
+in at the top. Click **Install** once and Interlude becomes a standalone app with
+its own dock icon — every window after that opens as the clean installed app, and
+the toast never returns. That's the whole setup; no command needed.
 
-1. Run `interlude install`.
-2. In the Chrome window that opens, click **Install** (address-bar icon, or
-   ⋮ menu → *Cast, save, and share* → *Install page as app…*).
-3. Close that window. From then on Interlude launches as its own app.
+(The first-run window is a normal browser window because Chrome only offers the
+one-click install there. After you install, it switches to the clean app frame.)
+
+Prefer to do it by hand, or the toast didn't appear? Run `interlude install` and
+click **Install** in the window that opens (address-bar icon, or ⋮ menu →
+*Cast, save, and share* → *Install page as app…*).
 
 ## Customize
 
