@@ -10,3 +10,6 @@ __pycache__/
 # Backups & OS cruft
 *.bak.*
 .DS_Store
+
+# Tooling artifacts
+.playwright-mcp/
