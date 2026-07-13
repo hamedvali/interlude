@@ -8,9 +8,11 @@ Claude is working vs. ready.
 """
 import json
 import os
+import shutil
+import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import unquote
+from urllib.parse import parse_qs, unquote, urlparse
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RUN_DIR = os.path.join(BASE_DIR, ".run")
@@ -26,8 +28,20 @@ SETTINGS_JSON = os.path.join(BASE_DIR, "settings.json")
 DECK_FILE = os.path.join(BASE_DIR, "words.json")
 STATE_FILE = os.path.join(BASE_DIR, "state.json")
 GAMES_DIR = os.path.join(BASE_DIR, "games")
+BROWSER_JS = os.path.join(BASE_DIR, "browser.js")
 
 DEFAULT_PORT = int(os.environ.get("INTERLUDE_PORT", "47615"))
+
+# Social platforms the Social view can open. Each opens in its own native
+# WKWebView window (browser.js) — a top-level load, since these sites forbid
+# <iframe> embedding via X-Frame-Options / CSP frame-ancestors. The window
+# shares the persistent cookie store, so a login sticks across sessions.
+SOCIAL_SITES = {
+    "instagram": ("Instagram", "https://www.instagram.com/"),
+    "x": ("X", "https://x.com/"),
+    "tiktok": ("TikTok", "https://www.tiktok.com/"),
+}
+SOCIAL_WIN = (1040, 880)  # width, height of a social window
 
 # User-editable settings the app's Settings view reads/writes. Env vars seed the
 # defaults so existing installs keep their behavior. Keep this in sync with
@@ -201,6 +215,82 @@ def deep_merge(base, incoming):
     return base
 
 
+def _pid_alive(pid):
+    if not pid:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def _read_pid(path):
+    try:
+        with open(path) as f:
+            return int(f.read().strip())
+    except Exception:
+        return None
+
+
+def _bump_front(path):
+    """Increment a re-front counter; browser.js polls it to raise its window."""
+    try:
+        n = 0
+        try:
+            with open(path) as f:
+                n = int(f.read().strip() or "0")
+        except Exception:
+            n = 0
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f:
+            f.write(str(n + 1))
+        os.replace(tmp, path)
+    except OSError:
+        pass
+
+
+def open_social(site):
+    """Open (or re-front) a signed-in native window for one social platform.
+
+    If a window for this platform is already alive, bump its front-file so it
+    raises itself instead of spawning a duplicate. Falls back to the system
+    browser if the native renderer (osascript + browser.js) isn't available.
+    """
+    if site not in SOCIAL_SITES:
+        return {"ok": False, "error": "unknown site"}
+    name, url = SOCIAL_SITES[site]
+    os.makedirs(RUN_DIR, exist_ok=True)
+    pid_file = os.path.join(RUN_DIR, "social-%s.pid" % site)
+    front_file = os.path.join(RUN_DIR, "social-%s.front" % site)
+
+    if _pid_alive(_read_pid(pid_file)):
+        _bump_front(front_file)
+        return {"ok": True, "fronted": True}
+
+    osa = shutil.which("osascript")
+    if osa and os.path.exists(BROWSER_JS):
+        try:
+            p = subprocess.Popen(
+                [osa, "-l", "JavaScript", BROWSER_JS, url, name,
+                 str(SOCIAL_WIN[0]), str(SOCIAL_WIN[1]), front_file],
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL, start_new_session=True, cwd=BASE_DIR)
+            with open(pid_file, "w") as f:
+                f.write(str(p.pid))
+            return {"ok": True, "opened": True}
+        except OSError:
+            pass
+
+    # Last-ditch fallback: the default browser (still persists the login there).
+    try:
+        subprocess.Popen(["open", url], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return {"ok": True, "opened": True, "fallback": "browser"}
+    except OSError:
+        return {"ok": False, "error": "cannot open"}
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):  # silence request logging
         pass
@@ -260,6 +350,10 @@ class Handler(BaseHTTPRequestHandler):
             if state is None:
                 state = json.loads(json.dumps(DEFAULT_STATE))
             self._send(200, state)
+        elif path == "/api/social/open":
+            q = parse_qs(urlparse(self.path).query)
+            site = (q.get("site") or [""])[0]
+            self._send(200, open_social(site))
         else:
             self._send(404, {"error": "not found"})
 
