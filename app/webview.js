@@ -25,7 +25,19 @@ function run(argv) {
   var url = argv[0] || 'about:blank';
   var W = parseInt(argv[1], 10) || 1240;
   var H = parseInt(argv[2], 10) || 840;
+  var FRONT_FILE = argv[3] || '';   // interlude.py bumps this to re-front us
   var CLOSE = '__INTERLUDE_CLOSE__';
+
+  // Read the current front-counter value (empty string if the file is absent
+  // or unreadable). interlude.py increments it when a new prompt arrives and a
+  // window is already open, so we can raise ourselves instead of a no-op.
+  function readFront() {
+    if (!FRONT_FILE) return '';
+    var s = $.NSString.stringWithContentsOfFileEncodingError(
+      FRONT_FILE, $.NSUTF8StringEncoding, $());
+    var v = ObjC.unwrap(s);
+    return (typeof v === 'string') ? v : '';
+  }
 
   var app = $.NSApplication.sharedApplication;
   app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
@@ -58,7 +70,10 @@ function run(argv) {
   win.makeKeyAndOrderFront(null);
   app.activateIgnoringOtherApps(true);
 
-  // Poll for exit conditions from inside the AppKit run loop.
+  // Baseline so the value present at launch doesn't trigger an immediate raise.
+  var lastFront = readFront();
+
+  // Poll for exit conditions + re-front requests from inside the run loop.
   $.NSTimer.scheduledTimerWithTimeIntervalRepeatsBlock(0.2, true, function (timer) {
     var done = !win.isVisible;                              // user closed the window
     if (!done) {
@@ -68,6 +83,13 @@ function run(argv) {
     if (done) {
       timer.invalidate;
       app.terminate(null);
+      return;
+    }
+    var cur = readFront();                                  // new prompt while open?
+    if (cur !== '' && cur !== lastFront) {
+      lastFront = cur;
+      win.makeKeyAndOrderFront(null);
+      app.activateIgnoringOtherApps(true);
     }
   });
 

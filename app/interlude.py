@@ -18,6 +18,7 @@ Admin: on | off | status | version | stop-server.
 Kill switch: set INTERLUDE_DISABLED=1, or run `interlude off`.
 Every hook entry point returns fast (heavy work is spawned detached).
 """
+import fcntl
 import json
 import os
 import shutil
@@ -27,7 +28,7 @@ import sys
 import time
 import urllib.request
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RUN_DIR = os.path.join(BASE_DIR, ".run")
@@ -39,6 +40,8 @@ SERVER_LOG = os.path.join(RUN_DIR, "server.log")
 WATCH_PID = os.path.join(RUN_DIR, "watch.pid")
 DISABLED = os.path.join(RUN_DIR, "disabled")
 KEEP_FILE = os.path.join(RUN_DIR, "keep")
+FRONT_FILE = os.path.join(RUN_DIR, "front")
+OPEN_LOCK = os.path.join(RUN_DIR, "open.lock")
 
 SERVER_PY = os.path.join(BASE_DIR, "server.py")
 WEBVIEW_JS = os.path.join(BASE_DIR, "webview.js")
@@ -167,30 +170,66 @@ def ensure_server():
 
 
 # ---------- window lifecycle ----------
+def request_front():
+    """Bump the front counter so a live window raises itself to the front.
+
+    webview.js polls FRONT_FILE from its run loop; when the value changes it
+    re-activates and orders the window front. This is how we surface a window
+    that already exists (buried behind other apps, on another Space, or left
+    over from a previous Claude session) instead of silently doing nothing.
+    """
+    ensure_run()
+    try:
+        n = 0
+        try:
+            with open(FRONT_FILE) as f:
+                n = int(f.read().strip() or "0")
+        except Exception:
+            n = 0
+        tmp = FRONT_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            f.write(str(n + 1))
+        os.replace(tmp, FRONT_FILE)
+    except OSError:
+        pass
+
+
 def do_open():
     """Open the Interlude popup: a native WKWebView window with no Dock icon.
 
     Rendered by webview.js via osascript (JavaScript for Automation). We track
     the osascript PID so do_close() can kill it cleanly.
+
+    Serialized with an flock so two hooks racing (e.g. UserPromptSubmit and
+    PostToolUse both firing a watcher) can never spawn two windows — the second
+    caller finds the first's window and just re-fronts it. If a window is
+    already alive we raise it to the front rather than no-op, so every prompt
+    reliably brings Interlude forward.
     """
-    if alive(pid_from(WINDOW_PID)):
-        return  # already showing
-    port = ensure_server()
-    if not port:
-        return
     ensure_run()
-    url = f"http://127.0.0.1:{port}/"
-    osa = shutil.which("osascript")
-    if not osa or not os.path.exists(WEBVIEW_JS):
-        # Last-ditch fallback: default browser (can't auto-close a plain tab,
-        # and this one does show a Dock icon). Should never happen on macOS.
-        subprocess.Popen(["open", url], stdin=subprocess.DEVNULL,
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return
-    p = spawn_detached([osa, "-l", "JavaScript", WEBVIEW_JS,
-                        url, str(WINDOW_W), str(WINDOW_H)])
-    with open(WINDOW_PID, "w") as f:
-        f.write(str(p.pid))
+    with open(OPEN_LOCK, "w") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+        except OSError:
+            pass
+        if alive(pid_from(WINDOW_PID)):
+            request_front()  # already showing — raise it to the front
+            return
+        port = ensure_server()
+        if not port:
+            return
+        url = f"http://127.0.0.1:{port}/"
+        osa = shutil.which("osascript")
+        if not osa or not os.path.exists(WEBVIEW_JS):
+            # Last-ditch fallback: default browser (can't auto-close a plain tab,
+            # and this one does show a Dock icon). Should never happen on macOS.
+            subprocess.Popen(["open", url], stdin=subprocess.DEVNULL,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return
+        p = spawn_detached([osa, "-l", "JavaScript", WEBVIEW_JS,
+                            url, str(WINDOW_W), str(WINDOW_H), FRONT_FILE])
+        with open(WINDOW_PID, "w") as f:
+            f.write(str(p.pid))
 
 
 def do_close():
