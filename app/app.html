@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Interlude</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%237C4DEB'/%3E%3Crect x='7.4' y='6' width='3.2' height='12' rx='1.6' fill='white'/%3E%3Crect x='13.4' y='6' width='3.2' height='12' rx='1.6' fill='white'/%3E%3C/svg%3E" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<meta name="theme-color" content="#7C4DEB" />
+<style>
+  :root {
+    --bg-page:    #EAE6F8;
+    --frame:      #ffffff;
+    --surface-2:  #F4F2FB;
+    --rail-1:     #7C4DEB;
+    --rail-2:     #6733E0;
+    --violet:     #7C4DEB;
+    --violet-ink: #5B2FD0;
+    --violet-soft:#EEE8FD;
+    --ink-1:      #241F3A;
+    --ink-2:      #6E6A85;
+    --ink-3:      #A6A2BC;
+    --line:       #ECEAF5;
+    --yellow:#E5A81C; --yellow-soft:#FBF1D6;
+    --coral:#F0714B;  --coral-soft:#FCE4DC;
+    --cyan:#2FB2C6;   --cyan-soft:#DBF3F6;
+    --peach1:#FDEBCB; --peach2:#FBD6A0;
+    --good:#3FB27F; --good-soft:rgba(63,178,127,.14);
+    --danger:#E8654F; --danger-soft:rgba(232,101,79,.14);
+    --warn:#E8A33A;
+    --box1:#E7DEFB; --box2:#C3AEF4; --box3:#9F7DEC; --box4:#7C4DEB; --box5:#5B2FD0;
+    --shadow:    0 18px 44px rgba(84,60,168,.12);
+    --shadow-sm: 0 6px 18px rgba(84,60,168,.08);
+    --r-frame:28px; --r-card:22px;
+    --font: ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --serif: Georgia,"Iowan Old Style","Times New Roman",serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme=light]) {
+      --bg-page:#120E20; --frame:#1C1730; --surface-2:#26203C;
+      --violet-soft:rgba(124,77,235,.20);
+      --ink-1:rgba(255,255,255,.92); --ink-2:rgba(255,255,255,.60); --ink-3:rgba(255,255,255,.40);
+      --line:rgba(255,255,255,.09);
+      --yellow-soft:rgba(229,168,28,.18); --coral-soft:rgba(240,113,75,.18); --cyan-soft:rgba(47,178,198,.18);
+      --peach1:#3B2E4E; --peach2:#2E2440;
+      --box1:#332B4B; --box2:#4B3B7A; --box3:#6A49C4; --box4:#8A62EE; --box5:#B79CF6;
+      --shadow:0 18px 44px rgba(0,0,0,.45); --shadow-sm:0 6px 18px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme=dark] {
+    --bg-page:#120E20; --frame:#1C1730; --surface-2:#26203C;
+    --violet-soft:rgba(124,77,235,.20);
+    --ink-1:rgba(255,255,255,.92); --ink-2:rgba(255,255,255,.60); --ink-3:rgba(255,255,255,.40);
+    --line:rgba(255,255,255,.09);
+    --yellow-soft:rgba(229,168,28,.18); --coral-soft:rgba(240,113,75,.18); --cyan-soft:rgba(47,178,198,.18);
+    --peach1:#3B2E4E; --peach2:#2E2440;
+    --box1:#332B4B; --box2:#4B3B7A; --box3:#6A49C4; --box4:#8A62EE; --box5:#B79CF6;
+    --shadow:0 18px 44px rgba(0,0,0,.45); --shadow-sm:0 6px 18px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; }
+  body {
+    background: var(--bg-page); color: var(--ink-1); font-family: var(--font);
+    font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+    display:flex; height:100vh; padding:22px; overflow:hidden;
+  }
+  ::selection { background: var(--violet-soft); }
+  .icon { stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; display:block; }
+
+  .app { flex:1; display:flex; gap:20px; background:var(--frame); border-radius:var(--r-frame);
+    padding:18px; box-shadow:var(--shadow); overflow:hidden; }
+
+  /* ---------- Rail ---------- */
+  .rail { width:82px; flex:0 0 82px; align-self:stretch; border-radius:26px;
+    background:linear-gradient(180deg,var(--rail-1),var(--rail-2));
+    display:flex; flex-direction:column; align-items:center; padding:22px 0 20px;
+    box-shadow:0 16px 34px rgba(108,60,224,.34); }
+  .rail-logo { width:42px; height:42px; border-radius:13px; background:rgba(255,255,255,.16);
+    display:grid; place-items:center; color:#fff; margin-bottom:20px; }
+  .rail-logo svg { width:20px; height:20px; }
+  .rail-nav { display:flex; flex-direction:column; gap:12px; align-items:center; }
+  .rico { width:48px; height:48px; border-radius:15px; border:0; background:transparent;
+    color:rgba(255,255,255,.82); display:grid; place-items:center; cursor:pointer;
+    transition:.16s; }
+  .rico svg { width:22px; height:22px; }
+  .rico:hover { background:rgba(255,255,255,.13); color:#fff; }
+  .rico.active { background:#fff; color:var(--violet); box-shadow:0 10px 20px rgba(50,24,110,.30); transform:translateX(3px); }
+  .rail-foot { margin-top:auto; color:rgba(255,255,255,.5); }
+  .rail-foot svg { width:20px; height:20px; }
+
+  /* ---------- Stage ---------- */
+  .stage { flex:1; display:flex; flex-direction:column; min-width:0; padding:8px 6px 0; }
+  .topbar { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:2px 6px 18px; }
+  .status-pill { display:inline-flex; align-items:center; gap:10px; background:var(--surface-2);
+    border:1px solid var(--line); border-radius:999px; padding:10px 18px; font-size:13.5px;
+    color:var(--ink-2); min-width:230px; }
+  .status-pill .sdot { width:8px; height:8px; border-radius:50%; background:var(--ink-3); flex:0 0 auto; }
+  .status-pill.working .sdot { background:var(--violet); animation:pulse 1.3s ease-in-out infinite; }
+  .status-pill.ready .sdot { background:var(--good); }
+  @keyframes pulse { 0%,100%{opacity:.3;transform:scale(.8);} 50%{opacity:1;transform:scale(1);} }
+  /* closing countdown modal */
+  .close-modal { position:fixed; inset:0; z-index:1000; display:flex; align-items:center;
+    justify-content:center; background:rgba(18,14,32,.42); backdrop-filter:blur(3px);
+    animation:closeFade .18s ease-out; }
+  .close-modal[hidden] { display:none; }
+  @keyframes closeFade { from{opacity:0;} to{opacity:1;} }
+  .close-card { width:300px; max-width:82vw; background:var(--frame); border:1px solid var(--line);
+    border-radius:22px; padding:26px 24px 22px; text-align:center;
+    box-shadow:0 24px 60px rgba(18,14,32,.34); animation:closePop .22s cubic-bezier(.2,.9,.3,1.2); }
+  @keyframes closePop { from{opacity:0;transform:translateY(10px) scale(.96);} to{opacity:1;transform:none;} }
+  .close-ring { width:56px; height:56px; margin:2px auto 14px; border-radius:50%;
+    background:var(--good-soft); color:var(--good); display:flex; align-items:center; justify-content:center; }
+  .close-ring svg { width:30px; height:30px; }
+  .close-title { font-size:17px; font-weight:700; color:var(--ink); letter-spacing:-.01em; }
+  .close-sub { margin-top:5px; font-size:14px; color:var(--ink-2); }
+  .close-sub b { display:inline-block; min-width:1ch; color:var(--violet); font-variant-numeric:tabular-nums;
+    font-weight:800; font-size:15px; }
+  .close-keep { margin-top:18px; width:100%; border:0; cursor:pointer; border-radius:12px;
+    padding:11px 14px; font:inherit; font-size:14px; font-weight:650; color:#fff;
+    background:linear-gradient(180deg,var(--rail-1),var(--rail-2)); transition:filter .12s; }
+  .close-keep:hover { filter:brightness(1.06); }
+  .close-hint { margin-top:11px; font-size:12px; color:var(--ink-3); }
+  .close-hint kbd { font:inherit; font-size:11px; background:var(--surface-2); border:1px solid var(--line);
+    border-bottom-width:2px; border-radius:6px; padding:1px 6px; color:var(--ink-2); }
+  .top-right { display:flex; align-items:center; gap:11px; }
+  .chip { display:inline-flex; align-items:center; gap:8px; background:var(--frame);
+    border:1px solid var(--line); border-radius:999px; padding:8px 14px; font-size:13px;
+    color:var(--ink-2); box-shadow:var(--shadow-sm); white-space:nowrap; }
+  .chip.streak b { color:var(--ink-1); font-weight:700; }
+  .chip.streak svg { width:15px; height:15px; color:#EE9A2E; }
+  .chip.brand { font-weight:650; color:var(--ink-1); }
+  .chip.brand .bdot { width:20px; height:20px; border-radius:6px; background:var(--violet);
+    display:grid; place-items:center; color:#fff; }
+  .chip.brand .bdot svg { width:12px; height:12px; }
+  .icon-btn { width:39px; height:39px; border-radius:12px; border:1px solid var(--line);
+    background:var(--frame); display:grid; place-items:center; cursor:pointer; color:var(--ink-2);
+    box-shadow:var(--shadow-sm); transition:.15s; }
+  .icon-btn:hover { color:var(--ink-1); }
+  .icon-btn svg { width:18px; height:18px; }
+
+  .scroller { flex:1; overflow-y:auto; padding:2px 10px 24px 6px; }
+  .scroller::-webkit-scrollbar { width:10px; }
+  .scroller::-webkit-scrollbar-thumb { background:var(--line); border-radius:8px; border:3px solid var(--frame); }
+  .view { display:none; } .view.active { display:block; }
+
+  .card { background:var(--frame); border:1px solid var(--line); border-radius:var(--r-card);
+    box-shadow:var(--shadow-sm); padding:20px 22px; }
+  .sec-title { font-size:19px; font-weight:750; letter-spacing:-.015em; margin:2px 0 15px; }
+  .muted { color:var(--ink-3); font-size:12.5px; }
+
+  /* ---------- Buttons ---------- */
+  .btn { border:1px solid var(--line); background:var(--surface-2); color:var(--ink-1);
+    border-radius:14px; padding:13px 16px; font:inherit; font-weight:600; font-size:14px;
+    cursor:pointer; transition:.15s; }
+  .btn:hover { background:var(--violet-soft); }
+  .btn.ghost { background:var(--frame); }
+  .btn.primary { background:linear-gradient(135deg,#8A5EF2,#6E39E6); border-color:transparent;
+    color:#fff; box-shadow:0 10px 20px rgba(108,60,224,.30); }
+  .btn.primary:hover { filter:brightness(1.05); }
+  .btn:active { transform:translateY(.5px); }
+  .kbd { font-size:11px; color:var(--ink-3); border:1px solid var(--line); border-radius:6px;
+    padding:2px 7px; background:var(--surface-2); }
+
+  /* ---------- Learn ---------- */
+  .grid-learn { display:grid; grid-template-columns:1fr 330px; gap:20px; align-items:start; }
+  .col-main { display:flex; flex-direction:column; gap:18px; }
+  .col-side { display:flex; flex-direction:column; gap:16px; }
+
+  .hero { position:relative; overflow:hidden; border-radius:var(--r-card); min-height:158px;
+    background:linear-gradient(115deg,var(--peach1),var(--peach2)); padding:26px 28px; display:flex; align-items:center; }
+  .hero-text { position:relative; z-index:2; max-width:60%; }
+  .hi { font-family:var(--serif); font-size:31px; font-weight:700; color:#B0591E; letter-spacing:-.01em; }
+  .hero-sub { margin:9px 0 15px; color:#96652F; font-size:14px; max-width:340px; line-height:1.5; }
+  .hero-stats { display:flex; gap:18px; }
+  .hstat { display:flex; align-items:center; gap:7px; font-size:13px; color:#8A5B2A; }
+  .hstat b { color:#6F4718; font-weight:700; }
+  .hstat svg { width:15px; height:15px; color:#C77C33; }
+  .hero-art { position:absolute; right:8px; top:0; bottom:0; width:238px; display:grid; place-items:center; z-index:1; }
+  :root[data-theme=dark] .hi, .hi { }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) .hi { color:#F0C58A; }
+    :root:not([data-theme=light]) .hero-sub { color:#C4A279; }
+    :root:not([data-theme=light]) .hstat { color:#C4A279; } :root:not([data-theme=light]) .hstat b { color:#EBD3AE; }
+    :root:not([data-theme=light]) .hstat svg { color:#E0B57E; } }
+  :root[data-theme=dark] .hi { color:#F0C58A; }
+  :root[data-theme=dark] .hero-sub { color:#C4A279; }
+  :root[data-theme=dark] .hstat { color:#C4A279; } :root[data-theme=dark] .hstat b { color:#EBD3AE; }
+  :root[data-theme=dark] .hstat svg { color:#E0B57E; }
+
+  .flashcard { padding:22px 24px; }
+  .fc-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+  .fc-eyebrow { font-size:11px; letter-spacing:.13em; color:var(--ink-3); font-weight:700; }
+  .pill-mini { font-size:11.5px; color:var(--violet); background:var(--violet-soft); border-radius:999px;
+    padding:4px 11px; font-weight:600; }
+  .flash { min-height:216px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; gap:12px; cursor:pointer; user-select:none; }
+  .flash .eyebrow { font-size:12px; color:var(--ink-3); letter-spacing:.04em; }
+  .flash .word { font-size:38px; font-weight:750; letter-spacing:-.02em; color:var(--ink-1); }
+  .flash .pos { font-style:italic; color:var(--ink-3); font-size:14px; }
+  .flash .def { font-size:20px; line-height:1.45; color:var(--ink-1); max-width:460px; }
+  .flash .ex { font-size:14px; color:var(--ink-2); font-style:italic; max-width:460px; }
+  .tag { display:inline-block; font-size:11px; padding:3px 12px; border-radius:999px;
+    background:var(--violet-soft); color:var(--violet); font-weight:600; }
+  .fc-actions { display:flex; gap:12px; margin-top:6px; } .fc-actions .btn { flex:1; }
+  .fc-hint { text-align:center; margin-top:14px; color:var(--ink-3); font-size:12px; }
+
+  /* stat cards */
+  .side-head { display:flex; align-items:baseline; justify-content:space-between; }
+  .side-head h3 { font-size:14.5px; font-weight:750; margin:0; }
+  .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:13px; }
+  .stat-grid.four { grid-template-columns:repeat(4,1fr); }
+  .stat-card { border-radius:18px; padding:15px 16px; color:#fff; min-height:104px;
+    display:flex; flex-direction:column; justify-content:space-between; box-shadow:var(--shadow-sm); }
+  .stat-card .sc-ico { width:32px; height:32px; border-radius:10px; background:rgba(255,255,255,.22);
+    display:grid; place-items:center; color:#fff; }
+  .stat-card .sc-ico svg { width:17px; height:17px; }
+  .stat-card b { font-size:27px; font-weight:750; line-height:1; }
+  .stat-card span { font-size:12.5px; opacity:.92; display:block; margin-top:3px; }
+  .stat-card.violet { background:linear-gradient(135deg,#8A5EF2,#6E39E6); }
+  .stat-card.yellow { background:linear-gradient(135deg,#F6C948,#EAAB1C); }
+  .stat-card.coral  { background:linear-gradient(135deg,#FCA07E,#F0714B); }
+  .stat-card.cyan   { background:linear-gradient(135deg,#5FD6E4,#2FB2C6); }
+
+  /* ---------- Play ---------- */
+  .game-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px; }
+  .game-card { text-align:left; border:1px solid var(--line); background:var(--frame); border-radius:18px;
+    padding:16px; cursor:pointer; transition:.16s; box-shadow:var(--shadow-sm); }
+  .game-card:hover { transform:translateY(-2px); }
+  .gc-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:26px; }
+  .gc-ico { width:38px; height:38px; border-radius:12px; display:grid; place-items:center; }
+  .gc-ico svg { width:19px; height:19px; }
+  .gc-name { font-weight:700; font-size:14.5px; color:var(--ink-1); }
+  .gc-sub { font-size:12px; color:var(--ink-3); margin-top:3px; }
+  .game-card.violet .gc-ico { background:var(--violet-soft); color:var(--violet); }
+  .game-card.yellow .gc-ico { background:var(--yellow-soft); color:var(--yellow); }
+  .game-card.coral  .gc-ico { background:var(--coral-soft);  color:var(--coral); }
+  .game-card.cyan   .gc-ico { background:var(--cyan-soft);   color:var(--cyan); }
+  .game-card.on { color:#fff; border-color:transparent; }
+  .game-card.on .gc-name { color:#fff; } .game-card.on .gc-sub { color:rgba(255,255,255,.8); }
+  .game-card.on .gc-ico { background:rgba(255,255,255,.22); color:#fff; }
+  .game-card.on.violet { background:linear-gradient(135deg,#8A5EF2,#6E39E6); }
+  .game-card.on.yellow { background:linear-gradient(135deg,#F6C948,#EAAB1C); }
+  .game-card.on.coral  { background:linear-gradient(135deg,#FCA07E,#F0714B); }
+  .game-card.on.cyan   { background:linear-gradient(135deg,#5FD6E4,#2FB2C6); }
+  .toggle { width:34px; height:19px; border-radius:999px; background:var(--line); position:relative; flex:0 0 auto; transition:.15s; }
+  .toggle::after { content:""; position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%;
+    background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.22); transition:.15s; }
+  .toggle.on { background:rgba(255,255,255,.5); } .toggle.on::after { left:17px; }
+
+  /* game internals */
+  .prompt-word { font-size:28px; font-weight:750; letter-spacing:-.02em; margin:2px 0; }
+  .opt { display:flex; align-items:center; gap:12px; width:100%; text-align:left; margin:8px 0;
+    padding:14px 16px; border:1px solid var(--line); border-radius:13px; background:var(--surface-2);
+    color:var(--ink-1); font:inherit; font-size:14.5px; cursor:pointer; transition:.14s; }
+  .opt .key { width:21px; height:21px; border-radius:6px; border:1px solid var(--line); font-size:11px;
+    display:grid; place-items:center; color:var(--ink-3); flex:0 0 auto; }
+  .opt:hover { background:var(--violet-soft); }
+  .opt.correct { background:var(--good-soft); border-color:var(--good); }
+  .opt.correct .key { border-color:var(--good); color:var(--good); }
+  .opt.wrong { background:var(--danger-soft); border-color:var(--danger); }
+  .opt:disabled { cursor:default; }
+  .letters { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:18px 0; }
+  .lchip { width:40px; height:50px; border:1px solid var(--line); border-radius:11px; background:var(--surface-2);
+    display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:750; text-transform:uppercase; }
+  .keyrow { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin:14px 0 4px; }
+  .key-btn { min-width:31px; height:37px; padding:0 8px; border:1px solid var(--line); border-radius:9px;
+    background:var(--surface-2); color:var(--ink-1); font:inherit; font-size:14px; font-weight:600;
+    cursor:pointer; text-transform:uppercase; transition:.14s; }
+  .key-btn:hover:not(:disabled) { background:var(--violet-soft); }
+  .key-btn:disabled { opacity:.3; cursor:default; }
+  .dots { display:flex; gap:6px; justify-content:center; margin:4px 0 10px; }
+  .life { width:9px; height:9px; border-radius:50%; background:var(--good); }
+  .life.gone { background:var(--line); }
+  .grid-guess { display:flex; gap:7px; justify-content:center; margin:6px 0; }
+  .gcell { width:44px; height:44px; border:1px solid var(--line); border-radius:10px; display:flex;
+    align-items:center; justify-content:center; font-size:19px; font-weight:750; text-transform:uppercase; background:var(--surface-2); }
+  .gcell.hit  { background:var(--good); border-color:var(--good); color:#fff; }
+  .gcell.near { background:var(--warn); border-color:var(--warn); color:#fff; }
+  .gcell.miss { background:var(--surface-2); border-color:var(--line); color:var(--ink-3); }
+  input.text { width:100%; padding:13px 15px; border:1px solid var(--line); border-radius:13px; font:inherit;
+    font-size:16px; background:var(--surface-2); color:var(--ink-1); text-transform:uppercase; outline:none; }
+  input.text:focus { border-color:var(--violet); box-shadow:0 0 0 3px var(--violet-soft); }
+  .row { display:flex; gap:10px; } .row > * { flex:1; }
+  .center { text-align:center; }
+  .msg { min-height:20px; margin-top:12px; font-size:13.5px; }
+  .msg .ok { color:var(--good); font-weight:700; } .msg .no { color:var(--danger); font-weight:700; }
+  .msg .ok svg, .msg .no svg { width:13px; height:13px; vertical-align:-1px; }
+
+  /* ---------- Progress ---------- */
+  .prog-wrap { display:flex; flex-direction:column; gap:18px; }
+  .grid-prog { display:grid; grid-template-columns:340px 1fr; gap:18px; align-items:start; }
+  .col { display:flex; flex-direction:column; gap:18px; }
+  .gauge-card { display:flex; flex-direction:column; align-items:center; }
+  .gauge { width:236px; height:236px; margin:8px 0 6px; }
+  .gauge .g-val { font-family:var(--font); font-size:42px; font-weight:750; fill:var(--ink-1); }
+  .gauge .g-pct { font-size:19px; fill:var(--ink-3); }
+  .gauge .g-cap { font-family:var(--font); font-size:12px; fill:var(--ink-3); letter-spacing:.12em; text-transform:uppercase; }
+  .gauge-legend { font-size:12.5px; color:var(--ink-2); }
+  .chart-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+  .chart-head .t { font-weight:750; font-size:14.5px; }
+  .area .aline { fill:none; stroke:var(--violet); stroke-width:2.5; stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
+  .area .grid { stroke:var(--line); stroke-dasharray:4 5; vector-effect:non-scaling-stroke; }
+  .area .dot { fill:var(--frame); stroke:var(--violet); stroke-width:2; vector-effect:non-scaling-stroke; cursor:pointer; }
+  .area .dot.peak { fill:var(--violet); }
+  .area .ax { fill:var(--ink-3); font-size:11px; font-family:var(--font); }
+  .box-row { display:flex; align-items:center; gap:12px; margin:9px 0; }
+  .box-row .name { width:50px; font-size:12.5px; color:var(--ink-2); }
+  .box-track { display:block; flex:1; height:10px; background:var(--surface-2); border-radius:6px; overflow:hidden; }
+  .box-fill { display:block; height:100%; border-radius:6px; min-width:0; transition:width .35s ease; }
+  .box-n { width:24px; text-align:right; font-size:12.5px; color:var(--ink-3); font-variant-numeric:tabular-nums; }
+
+  #tooltip { position:fixed; pointer-events:none; background:var(--ink-1); color:var(--frame); padding:6px 10px;
+    border-radius:8px; font-size:12px; font-weight:600; opacity:0; transition:opacity .1s; z-index:60; white-space:nowrap;
+    box-shadow:0 6px 18px rgba(0,0,0,.2); }
+
+  @media (max-width:1040px) {
+    .grid-learn,.grid-prog { grid-template-columns:1fr; }
+    .stat-grid.four { grid-template-columns:repeat(2,1fr); }
+    .game-grid { grid-template-columns:repeat(2,1fr); }
+    .hero-art { display:none; } .hero-text { max-width:100%; }
+  }
+</style>
+</head>
+<body>
+  <div id="closeModal" class="close-modal" hidden>
+    <div class="close-card" role="alertdialog" aria-live="assertive" aria-label="Claude is ready">
+      <div class="close-ring">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="close-title">Claude is ready</div>
+      <div class="close-sub">Closing in <b id="closeCount">3</b></div>
+      <button id="closeKeep" class="close-keep" type="button">Keep open</button>
+      <div class="close-hint">or press <kbd>Esc</kbd> to keep it open</div>
+    </div>
+  </div>
+  <div class="app">
+    <nav class="rail">
+      <div class="rail-logo">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4.5" width="4" height="15" rx="2"/><rect x="14" y="4.5" width="4" height="15" rx="2"/></svg>
+      </div>
+      <div class="rail-nav">
+        <button class="rico active" data-view="learn" title="Learn">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c0 1.1 2.7 3 6 3s6-1.9 6-3v-5"/><path d="M22 10v6"/></svg></button>
+        <button class="rico" data-view="play" title="Play">
+          <svg class="icon" viewBox="0 0 24 24"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg></button>
+        <button class="rico" data-view="progress" title="Progress">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></button>
+      </div>
+      <div class="rail-foot" title="Interlude">
+        <svg class="icon" viewBox="0 0 24 24"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>
+      </div>
+    </nav>
+
+    <div class="stage">
+      <header class="topbar">
+        <div class="status-pill" id="status"><span class="sdot"></span><span id="status-text">Connecting…</span></div>
+        <div class="top-right">
+          <div class="chip streak">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/></svg>
+            <b id="streak-chip">0</b>&nbsp;day streak
+          </div>
+          <button class="icon-btn" id="theme" title="Toggle theme"></button>
+          <div class="chip brand"><span class="bdot"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="2"/><rect x="14" y="4.5" width="4" height="15" rx="2"/></svg></span> Interlude</div>
+        </div>
+      </header>
+      <div class="scroller">
+        <section id="learn" class="view active"></section>
+        <section id="play" class="view"></section>
+        <section id="progress" class="view"></section>
+      </div>
+    </div>
+  </div>
+  <div id="tooltip"></div>
+
+<script>
+"use strict";
+const $ = (s,r=document)=>r.querySelector(s);
+const api = {
+  async status(){ try{ return await (await fetch("/api/status")).json(); }catch{ return {busy:false}; } },
+  async deck(){ return (await (await fetch("/api/deck")).json()).words || []; },
+  async state(){ return await (await fetch("/api/state")).json(); },
+  async save(s){ try{ await fetch("/api/state",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(s)}); }catch{} },
+  async keep(gen){ try{ await fetch("/api/keep",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({gen})}); }catch{} },
+};
+const todayStr = ()=> new Date().toISOString().slice(0,10);
+const shuffle = a=>{ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+
+const I = {
+  flame:`<svg class="icon" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/></svg>`,
+  check:`<svg class="icon" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m22 4-10 10.01-3-3"/></svg>`,
+  rotate:`<svg class="icon" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>`,
+  target:`<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>`,
+  book:`<svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>`,
+  quiz:`<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>`,
+  shuffle:`<svg class="icon" viewBox="0 0 24 24"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/></svg>`,
+  type:`<svg class="icon" viewBox="0 0 24 24"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>`,
+  grid:`<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>`,
+  sun:`<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`,
+  moon:`<svg class="icon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,
+  checkmini:`<svg class="icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>`,
+};
+const HERO_ART = `<svg viewBox="0 0 220 150" width="220" height="150" fill="none" aria-hidden="true">
+  <circle cx="152" cy="44" r="27" fill="#F7B733"/><circle cx="152" cy="44" r="27" fill="#FBD277" opacity=".45"/>
+  <g fill="#ffffff" opacity=".85"><ellipse cx="58" cy="38" rx="26" ry="13"/><ellipse cx="94" cy="45" rx="19" ry="10"/></g>
+  <path d="M40 90l2.6 6.4 6.4 2.6-6.4 2.6L40 108l-2.6-6.4L31 99l6.4-2.6z" fill="#7C4DEB" opacity=".5"/>
+  <rect x="118" y="112" width="82" height="17" rx="4" fill="#7C4DEB"/>
+  <rect x="126" y="95" width="72" height="17" rx="4" fill="#F0714B"/>
+  <rect x="114" y="78" width="68" height="17" rx="4" fill="#F6C445"/>
+  <rect x="150" y="74" width="10" height="25" rx="2" fill="#E8654F"/>
+</svg>`;
+
+let DECK=[], STATE=null, keyHandler=null;
+
+function ensureWord(w){ if(!STATE.words[w]) STATE.words[w]={box:1,seen:0,correct:0}; return STATE.words[w]; }
+function recordDay(){
+  const d=todayStr();
+  if(STATE.lastDay!==d){
+    const yest=new Date(Date.now()-86400000).toISOString().slice(0,10);
+    STATE.streak=(STATE.lastDay===yest)?(STATE.streak||0)+1:1; STATE.lastDay=d;
+  }
+  let h=(STATE.history||[]).find(e=>e.day===d);
+  if(!h){ h={day:d,reviews:0}; STATE.history.push(h); }
+  h.reviews++; STATE.reviews=(STATE.reviews||0)+1; STATE.history=STATE.history.slice(-30);
+}
+function review(word,correct){
+  const w=ensureWord(word); w.seen++;
+  if(correct){ w.correct++; w.box=Math.min(5,w.box+1); } else { w.box=1; }
+  recordDay(); save(); updateChrome();
+}
+let saveT=null;
+function save(){ clearTimeout(saveT); saveT=setTimeout(()=>api.save(STATE),250); }
+function updateChrome(){ $("#streak-chip").textContent = STATE?.streak||0; }
+
+function pickWeighted(){
+  const pool=[];
+  DECK.forEach(c=>{ const box=(STATE.words[c.word]?.box)||1; const wgt=6-box; for(let i=0;i<wgt;i++) pool.push(c); });
+  return pool[Math.floor(Math.random()*pool.length)] || DECK[0];
+}
+function computeStats(){
+  const words=STATE.words||{};
+  const mastered=Object.values(words).filter(w=>w.box>=5).length;
+  const learning=Object.keys(words).length;
+  const seen=Object.values(words).reduce((a,w)=>a+(w.seen||0),0);
+  const corr=Object.values(words).reduce((a,w)=>a+(w.correct||0),0);
+  const acc=seen?Math.round(100*corr/seen):0;
+  const boxCounts=[1,2,3,4,5].map(b=>Object.values(words).filter(w=>w.box===b).length);
+  const days=[]; for(let i=6;i>=0;i--){ const d=new Date(Date.now()-i*86400000).toISOString().slice(0,10);
+    const h=(STATE.history||[]).find(e=>e.day===d); days.push({day:d,n:h?h.reviews:0}); }
+  const masteryPct = DECK.length? mastered/DECK.length : 0;
+  return {mastered,learning,seen,acc,boxCounts,days,streak:STATE.streak||0,reviews:STATE.reviews||0,masteryPct};
+}
+function statCard(cls,icon,val,label){
+  return `<div class="stat-card ${cls}"><div class="sc-ico">${icon}</div><div><b>${val}</b><span>${label}</span></div></div>`;
+}
+
+/* ---------------- LEARN ---------------- */
+let cur=null, flipped=false;
+function renderLearn(){
+  const el=$("#learn"); cur=pickWeighted(); flipped=false;
+  const s=computeStats(); const box=(STATE.words[cur.word]?.box)||1;
+  el.innerHTML=`
+    <div class="grid-learn">
+      <div class="col-main">
+        <div class="hero">
+          <div class="hero-text">
+            <div class="hi">Hello there!</div>
+            <p class="hero-sub">Turn the wait into words — run a few cards while Claude works.</p>
+            <div class="hero-stats">
+              <span class="hstat">${I.book}<b>${s.learning}</b> in progress</span>
+              <span class="hstat">${I.flame}<b>${s.streak}</b> day streak</span>
+            </div>
+          </div>
+          <div class="hero-art">${HERO_ART}</div>
+        </div>
+        <div class="card flashcard">
+          <div class="fc-head"><span class="fc-eyebrow">FLASHCARD</span><span class="pill-mini">Box ${box} / 5</span></div>
+          <div class="flash" id="flash"></div>
+          <div class="fc-actions">
+            <button class="btn ghost" id="miss">Again</button>
+            <button class="btn primary" id="got">I knew it</button>
+          </div>
+          <div class="fc-hint"><span class="kbd">Space</span> flip · <span class="kbd">1</span> Again · <span class="kbd">2</span> I knew it</div>
+        </div>
+      </div>
+      <aside class="col-side">
+        <div class="side-head"><h3>This session</h3></div>
+        <div class="stat-grid">
+          ${statCard("violet",I.flame,s.streak,"Day streak")}
+          ${statCard("yellow",I.check,s.mastered,"Mastered")}
+          ${statCard("coral",I.rotate,s.reviews,"Reviews")}
+          ${statCard("cyan",I.target,s.acc+"%","Accuracy")}
+        </div>
+        <div class="card">
+          <div class="chart-head"><span class="t">Mastery</span><span class="muted">Leitner</span></div>
+          ${boxBars(s.boxCounts)}
+        </div>
+      </aside>
+    </div>`;
+  const face=()=>{ $("#flash").innerHTML = flipped
+    ? `<span class="tag">${cur.pos}</span><div class="def">${cur.def}</div><div class="ex">“${cur.ex}”</div>`
+    : `<span class="eyebrow">tap to reveal</span><div class="word">${cur.word}</div><div class="pos">${cur.pos}</div>`; };
+  face();
+  const flip=()=>{ flipped=!flipped; face(); };
+  $("#flash").onclick=flip;
+  $("#got").onclick =()=>{ review(cur.word,true);  renderLearn(); };
+  $("#miss").onclick=()=>{ review(cur.word,false); renderLearn(); };
+  keyHandler=(e)=>{
+    if(e.key===" "||e.key==="Enter"){ e.preventDefault(); flip(); }
+    else if(e.key==="1"){ review(cur.word,false); renderLearn(); }
+    else if(e.key==="2"){ review(cur.word,true);  renderLearn(); }
+  };
+}
+function boxBars(boxCounts){
+  const max=Math.max(1,...boxCounts);
+  return boxCounts.map((n,i)=>`
+    <div class="box-row"><span class="name">Box ${i+1}</span>
+      <span class="box-track"><span class="box-fill" style="width:${Math.round(100*n/max)}%;background:var(--box${i+1})"></span></span>
+      <span class="box-n">${n}</span></div>`).join("");
+}
+
+/* ---------------- PLAY ---------------- */
+const GAMES = [
+  { id:"quiz",     name:"Definition Quiz", color:"violet", ico:I.quiz,    mount:mountQuiz },
+  { id:"scramble", name:"Word Scramble",   color:"yellow", ico:I.shuffle, mount:mountScramble },
+  { id:"hangman",  name:"Hangman",         color:"coral",  ico:I.type,    mount:mountHangman },
+  { id:"wordle",   name:"Vocab Wordle",    color:"cyan",   ico:I.grid,    mount:mountWordle },
+];
+let activeGame = GAMES[0].id;
+function renderPlay(){
+  const el=$("#play");
+  el.innerHTML=`
+    <h2 class="sec-title">Games</h2>
+    <div class="game-grid">
+      ${GAMES.map(g=>{
+        const on=g.id===activeGame; const best=STATE.games[g.id]?.best||0; const wins=STATE.games[g.id]?.wins||0;
+        return `<button class="game-card ${g.color} ${on?'on':''}" data-g="${g.id}">
+          <div class="gc-top"><span class="gc-ico">${g.ico}</span><span class="toggle ${on?'on':''}"></span></div>
+          <div class="gc-name">${g.name}</div>
+          <div class="gc-sub">${g.id==='wordle'?('Best '+best):(wins+' won')}</div>
+        </button>`;
+      }).join("")}
+    </div>
+    <div class="card" id="game"></div>`;
+  el.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{ activeGame=b.dataset.g; renderPlay(); });
+  bumpGame(activeGame,"played");
+  keyHandler=null;
+  GAMES.find(g=>g.id===activeGame).mount($("#game"));
+}
+function bumpGame(id,key,val){
+  if(!STATE.games[id]) STATE.games[id]={played:0,wins:0,best:0};
+  if(key==="best") STATE.games[id].best=Math.max(STATE.games[id].best||0,val);
+  else STATE.games[id][key]=(STATE.games[id][key]||0)+1;
+  save();
+}
+
+function mountQuiz(host){
+  const c=pickWeighted();
+  const opts=shuffle([{t:c.def,ok:true}, ...c.distractors.map(d=>({t:d,ok:false}))]);
+  host.innerHTML=`
+      <div class="muted">What does this word mean?</div>
+      <div class="prompt-word">${c.word}</div>
+      <div class="pos" style="font-style:italic;color:var(--ink-3);margin-bottom:14px">${c.pos}</div>
+      <div id="opts"></div>
+      <div class="msg" id="qmsg"></div>`;
+  const box=$("#opts",host);
+  opts.forEach((o,i)=>{
+    const b=document.createElement("button"); b.className="opt";
+    b.innerHTML=`<span class="key">${i+1}</span><span>${o.t}</span>`;
+    b.onclick=()=>choose(o,b); box.appendChild(b);
+  });
+  function choose(o,b){
+    box.querySelectorAll(".opt").forEach(x=>x.disabled=true);
+    if(o.ok){ b.classList.add("correct"); $("#qmsg",host).innerHTML=`<span class="ok">Correct.</span> ${c.word} — ${c.def}`;
+      review(c.word,true); bumpGame("quiz","wins"); }
+    else { b.classList.add("wrong");
+      box.querySelectorAll(".opt").forEach(x=>{ if(x.textContent.includes(c.def)) x.classList.add("correct"); });
+      $("#qmsg",host).innerHTML=`<span class="no">Not quite.</span> ${c.word} — ${c.def}`; review(c.word,false); }
+    keyHandler=null; setTimeout(()=>mountQuiz(host), o.ok?950:1900);
+  }
+  keyHandler=(e)=>{ const n=parseInt(e.key); if(n>=1&&n<=opts.length){ const b=box.children[n-1]; if(b&&!b.disabled) b.click(); } };
+}
+
+function mountScramble(host){
+  const c=pickWeighted();
+  let letters=shuffle(c.word.split("")); if(letters.join("")===c.word&&c.word.length>1)[letters[0],letters[1]]=[letters[1],letters[0]];
+  host.innerHTML=`<div class="center">
+      <div class="muted">Unscramble the word</div>
+      <div class="letters">${letters.map(l=>`<span class="lchip">${l}</span>`).join("")}</div>
+      <p class="def" style="font-size:16px;color:var(--ink-2);max-width:520px;margin:0 auto 14px">${c.def}</p>
+      <input class="text" id="sinput" placeholder="type your answer" autocomplete="off" style="max-width:360px;margin:0 auto" />
+      <div class="msg" id="smsg"></div>
+      <div class="row" style="max-width:360px;margin:14px auto 0">
+        <button class="btn ghost" id="sskip">Skip</button>
+        <button class="btn primary" id="scheck">Check</button>
+      </div></div>`;
+  const inp=$("#sinput",host);
+  const submit=()=>{ if(inp.value.trim().toLowerCase()===c.word){
+      $("#smsg",host).innerHTML=`<span class="ok">${I.checkmini} ${c.word.toUpperCase()}</span>`;
+      review(c.word,true); bumpGame("scramble","wins"); setTimeout(()=>mountScramble(host),1000);
+    } else $("#smsg",host).innerHTML=`<span class="no">Try again…</span>`; };
+  inp.onkeydown=e=>{ if(e.key==="Enter") submit(); };
+  $("#scheck",host).onclick=submit;
+  $("#sskip",host).onclick=()=>{ review(c.word,false); mountScramble(host); };
+  setTimeout(()=>inp.focus(),30);
+}
+
+function mountHangman(host){
+  const c=pickWeighted(); const word=c.word.toLowerCase(); const MAX=7;
+  let guessed=new Set(), wrong=0;
+  const draw=()=>{
+    const shown=word.split("").map(ch=>ch===" "?"·":(guessed.has(ch)?ch:"_")).join(" ");
+    const won=word.split("").every(ch=>ch===" "||guessed.has(ch)); const lost=wrong>=MAX;
+    host.innerHTML=`<div class="center">
+      <div class="muted">Guess the word · <em>${c.def}</em></div>
+      <div style="font-size:30px;font-weight:750;letter-spacing:5px;margin:20px 0 8px">${shown}</div>
+      <div class="dots">${Array.from({length:MAX},(_,i)=>`<span class="life ${i<wrong?'gone':''}"></span>`).join("")}</div>
+      <div class="keyrow" id="keys">${"abcdefghijklmnopqrstuvwxyz".split("").map(l=>
+        `<button class="key-btn" data-l="${l}" ${guessed.has(l)?"disabled":""}>${l}</button>`).join("")}</div>
+      <div class="msg center" id="hmsg"></div></div>`;
+    if(won){ $("#hmsg",host).innerHTML=`<span class="ok">Nice — you got it.</span>`; review(c.word,true); bumpGame("hangman","wins"); setTimeout(()=>mountHangman(host),1400); return; }
+    if(lost){ $("#hmsg",host).innerHTML=`<span class="no">The word was “${word}”.</span>`; review(c.word,false); setTimeout(()=>mountHangman(host),2000); return; }
+    host.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{ const l=b.dataset.l; guessed.add(l); if(!word.includes(l)) wrong++; draw(); });
+  };
+  draw();
+  keyHandler=(e)=>{ const l=e.key.toLowerCase(); if(/^[a-z]$/.test(l)&&!guessed.has(l)){ guessed.add(l); if(!word.includes(l)) wrong++; draw(); } };
+}
+
+function mountWordle(host){
+  const c=pickWeighted(); const word=c.word.toLowerCase().replace(/[^a-z]/g,""); const N=word.length, MAX=6;
+  let rows=[], done=false;
+  const rowEl=g=>{
+    const wrap=document.createElement("div"); wrap.className="grid-guess";
+    const counts={}; for(const ch of word) counts[ch]=(counts[ch]||0)+1;
+    const cls=Array(N).fill("miss");
+    for(let i=0;i<N;i++){ if(g[i]===word[i]){cls[i]="hit"; counts[g[i]]--;} }
+    for(let i=0;i<N;i++){ if(cls[i]==="hit")continue; if(counts[g[i]]>0){cls[i]="near";counts[g[i]]--;} }
+    for(let i=0;i<N;i++){ const d=document.createElement("div"); d.className="gcell "+cls[i]; d.textContent=g[i]||""; wrap.appendChild(d); }
+    return wrap;
+  };
+  const render=()=>{
+    host.innerHTML=`<div class="center">
+      <div class="muted">Guess the ${N}-letter word · <em>${c.def}</em></div>
+      <div id="grid" style="margin:18px 0"></div>
+      <input class="text" id="winput" maxlength="${N}" placeholder="${N} letters, then Enter" autocomplete="off" ${done?"disabled":""} style="max-width:340px;margin:0 auto"/>
+      <div class="msg" id="wmsg"></div></div>`;
+    const grid=$("#grid",host); rows.forEach(g=>grid.appendChild(rowEl(g)));
+    if(!done){ const inp=$("#winput",host); setTimeout(()=>inp.focus(),30);
+      inp.onkeydown=e=>{ if(e.key==="Enter") tryGuess(inp.value.toLowerCase()); }; }
+  };
+  const tryGuess=g=>{
+    if(g.length!==N){ $("#wmsg",host).innerHTML=`<span class="no">Needs ${N} letters.</span>`; return; }
+    rows.push(g);
+    if(g===word){ done=true; render(); $("#wmsg",host).innerHTML=`<span class="ok">Solved in ${rows.length}.</span>`;
+      review(c.word,true); bumpGame("wordle","wins"); bumpGame("wordle","best",MAX-rows.length+1); setTimeout(()=>mountWordle(host),1600); return; }
+    if(rows.length>=MAX){ done=true; render(); $("#wmsg",host).innerHTML=`<span class="no">It was “${word}”.</span>`; review(c.word,false); setTimeout(()=>mountWordle(host),2200); return; }
+    render();
+  };
+  render();
+}
+
+/* ---------------- PROGRESS ---------------- */
+function gaugeSVG(pct){
+  const cx=118,cy=118,r=88, C=2*Math.PI*r, off=C*(1-pct);
+  let ticks=""; const TN=56;
+  for(let i=0;i<TN;i++){ const a=(i/TN)*2*Math.PI - Math.PI/2;
+    const x1=cx+100*Math.cos(a), y1=cy+100*Math.sin(a), x2=cx+107*Math.cos(a), y2=cy+107*Math.sin(a);
+    const on=(i/TN)<=pct;
+    ticks+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${on?'var(--violet)':'var(--line)'}" stroke-width="2.4" stroke-linecap="round"/>`;
+  }
+  return `<svg class="gauge" viewBox="0 0 236 236">
+    <defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8A5EF2"/><stop offset="1" stop-color="#F0714B"/></linearGradient></defs>
+    ${ticks}
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--surface-2)" stroke-width="13"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="url(#gg)" stroke-width="13" stroke-linecap="round"
+      stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 ${cx} ${cy})"/>
+    <text x="118" y="112" text-anchor="middle" class="g-val">${Math.round(pct*100)}<tspan class="g-pct">%</tspan></text>
+    <text x="118" y="138" text-anchor="middle" class="g-cap">mastered</text>
+  </svg>`;
+}
+function areaChart(days){
+  const W=380,H=176, padL=8,padR=10,padT=16,padB=26;
+  const max=Math.max(1,...days.map(d=>d.n)); const n=days.length; const iw=W-padL-padR;
+  const X=i=> padL + (n===1?iw/2:i*iw/(n-1));
+  const Y=v=> padT + (1-(v/max))*(H-padT-padB);
+  const pts=days.map((d,i)=>[X(i),Y(d.n)]);
+  const line=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const area=`M${pts[0][0].toFixed(1)} ${(H-padB).toFixed(1)} `+pts.map(p=>'L'+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ')+` L${pts[n-1][0].toFixed(1)} ${(H-padB).toFixed(1)} Z`;
+  const peak=days.reduce((m,d,i)=>d.n>days[m].n?i:m,0);
+  const dots=pts.map((p,i)=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${(i===peak&&days[peak].n)?4.5:3}" class="dot ${(i===peak&&days[peak].n)?'peak':''}" data-tip="${days[i].n} review${days[i].n===1?'':'s'} · ${days[i].day}"/>`).join('');
+  const labels=days.map((d,i)=>`<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="middle" class="ax">${new Date(d.day+'T00:00').toLocaleDateString(undefined,{weekday:'short'}).slice(0,2)}</text>`).join('');
+  return `<svg class="area" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+    <defs><linearGradient id="af" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--violet)" stop-opacity=".28"/><stop offset="1" stop-color="var(--violet)" stop-opacity="0"/></linearGradient></defs>
+    <line x1="${padL}" y1="${padT}" x2="${W-padR}" y2="${padT}" class="grid"/>
+    <path d="${area}" fill="url(#af)"/><path d="${line}" class="aline"/>${dots}${labels}
+  </svg>`;
+}
+function renderProgress(){
+  const el=$("#progress"); const s=computeStats();
+  const weekTotal=s.days.reduce((a,d)=>a+d.n,0);
+  el.innerHTML=`
+    <div class="prog-wrap">
+      <div class="stat-grid four">
+        ${statCard("violet",I.flame,s.streak,"Day streak")}
+        ${statCard("yellow",I.check,s.mastered+" / "+(s.learning||0),"Mastered")}
+        ${statCard("coral",I.rotate,s.reviews,"Reviews")}
+        ${statCard("cyan",I.target,s.acc+"%","Accuracy")}
+      </div>
+      <div class="grid-prog">
+        <div class="card gauge-card">
+          <div class="chart-head" style="width:100%"><span class="t">Mastery</span><span class="muted">of your deck</span></div>
+          ${gaugeSVG(s.masteryPct)}
+          <div class="gauge-legend"><b>${s.mastered}</b> mastered · ${s.learning} in progress</div>
+        </div>
+        <div class="col">
+          <div class="card">
+            <div class="chart-head"><span class="t">Reviews</span><span class="muted">${weekTotal} this week</span></div>
+            ${areaChart(s.days)}
+          </div>
+          <div class="card">
+            <div class="chart-head"><span class="t">Leitner boxes</span><span class="muted">1 = learning → 5 = mastered</span></div>
+            ${boxBars(s.boxCounts)}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  const tip=$("#tooltip");
+  el.querySelectorAll("[data-tip]").forEach(b=>{
+    b.onmousemove=e=>{ tip.textContent=b.dataset.tip; tip.style.opacity=1; tip.style.left=(e.clientX+12)+"px"; tip.style.top=(e.clientY-34)+"px"; };
+    b.onmouseleave=()=>{ tip.style.opacity=0; };
+  });
+  keyHandler=null;
+}
+
+/* ---------------- nav + status ---------------- */
+const RENDER={ learn:renderLearn, play:renderPlay, progress:renderProgress };
+function switchView(v){
+  document.querySelectorAll(".rico").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
+  document.querySelectorAll(".view").forEach(sec=>sec.classList.toggle("active",sec.id===v));
+  RENDER[v]();
+}
+document.querySelectorAll(".rico").forEach(b=>b.onclick=()=>switchView(b.dataset.view));
+document.addEventListener("keydown",e=>{ if(keyHandler && !/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) keyHandler(e); });
+
+/* theme toggle */
+const themeBtn=$("#theme");
+function isDark(){ const t=document.documentElement.getAttribute("data-theme");
+  return t? t==="dark" : matchMedia("(prefers-color-scheme:dark)").matches; }
+function applyThemeIcon(){ themeBtn.innerHTML = isDark()? I.sun : I.moon; }
+themeBtn.onclick=()=>{ document.documentElement.setAttribute("data-theme", isDark()?"light":"dark"); applyThemeIcon(); };
+
+let prevBusy=null, latestBusy=null, closing=false, kept=false, closeTimer=null, curGen=0;
+const COUNTDOWN=3;                 // seconds shown before the window closes itself
+
+function cancelClose(){ if(closeTimer){ clearInterval(closeTimer); closeTimer=null; } closing=false; $("#closeModal").hidden=true; }
+
+function keepOpen(){                 // user chose to stay — cancel countdown, tell the server
+  cancelClose(); kept=true; api.keep(curGen);
+}
+
+function beginCountdown(){
+  if(closing) return;
+  closing=true; kept=false;
+  const modal=$("#closeModal"), cnt=$("#closeCount");
+  let n=COUNTDOWN; cnt.textContent=n; modal.hidden=false;
+  closeTimer=setInterval(()=>{
+    if(latestBusy){ cancelClose(); return; }   // Claude got busy again — abort close
+    n-=1;
+    if(n<=0){ clearInterval(closeTimer); closeTimer=null; try{window.close();}catch{} return; }
+    cnt.textContent=n;
+  },1000);
+}
+
+$("#closeKeep").onclick=keepOpen;
+window.addEventListener("keydown",e=>{ if(e.key==="Escape" && closing){ e.preventDefault(); keepOpen(); } });
+
+async function poll(){
+  const s=await api.status(); latestBusy=s.busy; curGen=s.gen||0;
+  const st=$("#status"), t=$("#status-text");
+  if(s.busy){
+    st.className="status-pill working"; t.textContent="Claude is working…";
+    cancelClose(); kept=false;                 // fresh work: reset so a later idle can count down again
+  } else {
+    st.className="status-pill ready"; t.textContent="Claude is ready";
+    if(prevBusy===true && !kept) beginCountdown();
+  }
+  prevBusy=s.busy;
+}
+
+async function init(){
+  DECK=(await api.deck()).map(c=>({word:c.word,pos:c.pos,def:c.definition,ex:c.example,distractors:c.distractors||[]}));
+  STATE=await api.state();
+  STATE.words=STATE.words||{}; STATE.games=STATE.games||{}; STATE.history=STATE.history||[];
+  applyThemeIcon(); updateChrome();
+  switchView("learn");
+  poll(); setInterval(poll,800);
+}
+init();
+</script>
+</body>
+</html>

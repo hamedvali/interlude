@@ -1,0 +1,12 @@
+# Runtime state (created on the user's machine, never committed)
+app/.run/
+app/state.json
+app/state.json.tmp
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Backups & OS cruft
+*.bak.*
+.DS_Store

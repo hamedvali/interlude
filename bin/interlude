@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Interlude CLI launcher. Forwards to the installed control script.
+# Override the install location with INTERLUDE_HOME (defaults to ~/.interlude).
+set -euo pipefail
+HOME_DIR="${INTERLUDE_HOME:-$HOME/.interlude}"
+exec python3 "$HOME_DIR/interlude.py" "$@"
