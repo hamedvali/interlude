@@ -3,10 +3,14 @@
 
 Decides when to open/close the learn-and-play window:
 
-    on-prompt   (UserPromptSubmit)  -> Claude starts; open after ~3s if still busy
+    on-prompt   (UserPromptSubmit)  -> Claude starts; open now only in prompt mode
+    on-pretool  (PreToolUse)         -> Claude does something; open (tool mode, default)
     on-tool     (PostToolUse)        -> Claude still working; keep/re-open window
     on-stop     (Stop)               -> Claude finished; close window
     on-need     (Notification)       -> Claude needs you; close window
+
+Whether a prompt or a tool triggers the popup is the `openOn` setting
+(default "tool" — a pure text answer that uses no tools never opens the window).
 
 The window is a native macOS WKWebView popup (webview.js, run via osascript)
 with an *accessory* activation policy: it shows on screen but adds NO Dock icon
@@ -33,7 +37,7 @@ import urllib.request
 
 # Fallback only; the canonical version lives in the VERSION file next to this
 # script (so it ships under app/ and updates with the rest of the app).
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RUN_DIR = os.path.join(BASE_DIR, ".run")
@@ -54,10 +58,28 @@ NO_UPDATE = os.path.join(RUN_DIR, "no-update")
 SERVER_PY = os.path.join(BASE_DIR, "server.py")
 WEBVIEW_JS = os.path.join(BASE_DIR, "webview.js")
 VERSION_FILE = os.path.join(BASE_DIR, "VERSION")
+SETTINGS_JSON = os.path.join(BASE_DIR, "settings.json")  # user-editable app settings
 DEFAULT_PORT = int(os.environ.get("INTERLUDE_PORT", "47615"))
 OPEN_DELAY = float(os.environ.get("INTERLUDE_DELAY", "3"))
 WINDOW_W = int(os.environ.get("INTERLUDE_WIDTH", "1240"))
 WINDOW_H = int(os.environ.get("INTERLUDE_HEIGHT", "840"))
+
+# User-editable settings (via the in-app Settings view -> server -> settings.json).
+# Env vars seed the defaults so existing installs keep their behavior; the file
+# wins when present. Keep this schema in sync with server.py's SETTINGS_DEFAULTS.
+#   openOn    -- "tool" (open only when Claude uses a tool), "prompt", or "both"
+#   toolScope -- "all" tools, or "work" (file edits + commands only)
+SETTINGS_DEFAULTS = {
+    "openOn": os.environ.get("INTERLUDE_OPEN_ON", "tool"),
+    "toolScope": os.environ.get("INTERLUDE_TOOL_SCOPE", "all"),
+    "openDelay": OPEN_DELAY,
+    "width": WINDOW_W,
+    "height": WINDOW_H,
+    "defaultView": "learn",
+    "sound": False,
+}
+# Tools that count as Claude "doing something" when toolScope == "work".
+WORK_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "Task"}
 
 # --- auto-update settings (same source install.sh fetches from) ---
 UPDATE_REPO = os.environ.get("INTERLUDE_REPO", "hamedvali/interlude")
@@ -75,6 +97,37 @@ def ensure_run():
 
 def is_disabled():
     return os.environ.get("INTERLUDE_DISABLED") == "1" or os.path.exists(DISABLED)
+
+
+def load_settings():
+    """Read user settings, falling back to defaults for any missing key."""
+    data = dict(SETTINGS_DEFAULTS)
+    try:
+        with open(SETTINGS_JSON) as f:
+            user = json.load(f)
+        if isinstance(user, dict):
+            for k in SETTINGS_DEFAULTS:
+                if k in user:
+                    data[k] = user[k]
+    except Exception:
+        pass
+    return data
+
+
+def hook_input():
+    """Parse the JSON Claude Code passes on stdin (e.g. tool_name for PreToolUse).
+
+    Returns {} if there's nothing to read or it isn't valid JSON. Reading is safe
+    because Claude closes the pipe after writing, so read() never blocks forever.
+    """
+    try:
+        raw = sys.stdin.read()
+    except Exception:
+        return {}
+    try:
+        return json.loads(raw) if raw and raw.strip() else {}
+    except Exception:
+        return {}
 
 
 def read_status():
@@ -243,8 +296,13 @@ def do_open():
             subprocess.Popen(["open", url], stdin=subprocess.DEVNULL,
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return
+        s = load_settings()
+        try:
+            w, h = int(s.get("width", WINDOW_W)), int(s.get("height", WINDOW_H))
+        except (TypeError, ValueError):
+            w, h = WINDOW_W, WINDOW_H
         p = spawn_detached([osa, "-l", "JavaScript", WEBVIEW_JS,
-                            url, str(WINDOW_W), str(WINDOW_H), FRONT_FILE])
+                            url, str(w), str(h), FRONT_FILE])
         with open(WINDOW_PID, "w") as f:
             f.write(str(p.pid))
 
@@ -291,11 +349,15 @@ def do_close():
 
 
 def do_watch(gen):
-    """Wait OPEN_DELAY, then open only if this generation is still busy."""
+    """Wait the open delay, then open only if this generation is still busy."""
     ensure_run()
     with open(WATCH_PID, "w") as f:
         f.write(str(os.getpid()))
-    time.sleep(OPEN_DELAY)
+    try:
+        delay = float(load_settings().get("openDelay", OPEN_DELAY))
+    except (TypeError, ValueError):
+        delay = OPEN_DELAY
+    time.sleep(max(0.0, delay))
     st = read_status()
     if st.get("gen") == gen and st.get("busy"):
         do_open()
@@ -404,6 +466,7 @@ def register_hooks():
 
     plan = {
         "UserPromptSubmit": ("on-prompt", None),
+        "PreToolUse": ("on-pretool", "*"),
         "PostToolUse": ("on-tool", "*"),
         "Stop": ("on-stop", None),
         "Notification": ("on-need", None),
@@ -614,6 +677,15 @@ def maybe_check_update():
 
 
 # ---------- hook entry points ----------
+def _arm_watch(gen):
+    """Spawn a delayed opener for this generation, unless one's already covering it."""
+    if alive(pid_from(WINDOW_PID)):
+        return  # window already up
+    if alive(pid_from(WATCH_PID)):
+        return  # a watcher is already pending
+    spawn_detached([sys.executable, __file__, "_watch", str(gen)])
+
+
 def on_prompt():
     if is_disabled():
         return
@@ -621,8 +693,30 @@ def on_prompt():
     gen = int(st.get("gen", 0)) + 1
     clear_keep()
     write_status(True, gen)
-    spawn_detached([sys.executable, __file__, "_watch", str(gen)])
+    # Only pop on the prompt itself when the user opted into prompt-based opening.
+    # In "tool" mode we wait until Claude actually does something (see on_pretool),
+    # so a pure text explanation never opens the window.
+    if load_settings().get("openOn") in ("prompt", "both"):
+        _arm_watch(gen)
     maybe_check_update()  # throttled, opt-out-aware, detached — never blocks the hook
+
+
+def on_pretool():
+    """Claude is about to use a tool (read/write/edit/run). This is the "doing
+    something" trigger for tool-based opening."""
+    if is_disabled():
+        return
+    s = load_settings()
+    if s.get("openOn") == "prompt":
+        return  # prompt-only mode: tool activity shouldn't open the window
+    if s.get("toolScope") == "work":
+        tool = hook_input().get("tool_name") or ""
+        if tool and tool not in WORK_TOOLS:
+            return  # a read-only tool (Read/Grep/Glob/…) — not "real work"
+    st = read_status()
+    gen = int(st.get("gen", 0))
+    write_status(True, gen)  # keep same generation
+    _arm_watch(gen)
 
 
 def on_tool():
@@ -633,9 +727,9 @@ def on_tool():
     write_status(True, gen)  # keep same generation
     if alive(pid_from(WINDOW_PID)):
         return  # window already up
-    if alive(pid_from(WATCH_PID)):
-        return  # a watcher is already pending
-    spawn_detached([sys.executable, __file__, "_watch", str(gen)])
+    if load_settings().get("openOn") == "prompt":
+        return  # prompt-only mode: don't reopen off tool activity
+    _arm_watch(gen)
 
 
 def on_done():
@@ -673,6 +767,7 @@ def admin_status():
         "version": local_version(),
         "disabled": is_disabled(),
         "auto_update": not update_disabled(),
+        "settings": load_settings(),
         "update": read_update(),
         "status": read_status(),
         "port": port,
@@ -749,6 +844,7 @@ def admin_stop_server():
 
 COMMANDS = {
     "on-prompt": on_prompt,
+    "on-pretool": on_pretool,
     "on-tool": on_tool,
     "on-stop": on_done,
     "on-need": on_done,

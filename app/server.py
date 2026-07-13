@@ -18,13 +18,34 @@ STATUS_FILE = os.path.join(RUN_DIR, "status")
 PORT_FILE = os.path.join(RUN_DIR, "port")
 KEEP_FILE = os.path.join(RUN_DIR, "keep")
 UPDATE_FILE = os.path.join(RUN_DIR, "update.json")
+DISABLED_FILE = os.path.join(RUN_DIR, "disabled")
+NO_UPDATE_FILE = os.path.join(RUN_DIR, "no-update")
 APP_FILE = os.path.join(BASE_DIR, "app.html")
 VERSION_FILE = os.path.join(BASE_DIR, "VERSION")
+SETTINGS_JSON = os.path.join(BASE_DIR, "settings.json")
 DECK_FILE = os.path.join(BASE_DIR, "words.json")
 STATE_FILE = os.path.join(BASE_DIR, "state.json")
 GAMES_DIR = os.path.join(BASE_DIR, "games")
 
 DEFAULT_PORT = int(os.environ.get("INTERLUDE_PORT", "47615"))
+
+# User-editable settings the app's Settings view reads/writes. Env vars seed the
+# defaults so existing installs keep their behavior. Keep this in sync with
+# interlude.py's SETTINGS_DEFAULTS (both read the same settings.json).
+SETTINGS_DEFAULTS = {
+    "openOn": os.environ.get("INTERLUDE_OPEN_ON", "tool"),
+    "toolScope": os.environ.get("INTERLUDE_TOOL_SCOPE", "all"),
+    "openDelay": float(os.environ.get("INTERLUDE_DELAY", "3")),
+    "width": int(os.environ.get("INTERLUDE_WIDTH", "1240")),
+    "height": int(os.environ.get("INTERLUDE_HEIGHT", "840")),
+    "defaultView": "learn",
+    "sound": False,
+}
+_SETTINGS_CHOICES = {
+    "openOn": {"tool", "prompt", "both"},
+    "toolScope": {"all", "work"},
+    "defaultView": {"learn", "play", "progress"},
+}
 
 # Content types for the vendored games served out of app/games/.
 MIME = {
@@ -60,6 +81,82 @@ def read_version():
     except Exception:
         pass
     return "0"
+
+
+def read_settings():
+    """Merge settings.json over the defaults, plus the marker-file toggles
+    (enabled / autoUpdate) so the Settings view sees one unified object."""
+    data = dict(SETTINGS_DEFAULTS)
+    user = read_json(SETTINGS_JSON, {})
+    if isinstance(user, dict):
+        for k in SETTINGS_DEFAULTS:
+            if k in user:
+                data[k] = user[k]
+    data["enabled"] = not os.path.exists(DISABLED_FILE)
+    data["autoUpdate"] = not os.path.exists(NO_UPDATE_FILE)
+    data["version"] = read_version()
+    return data
+
+
+def _coerce_settings(incoming):
+    """Validate/clamp an incoming settings patch down to known, safe values."""
+    out = {}
+    for k in ("openOn", "toolScope", "defaultView"):
+        if k in incoming and incoming[k] in _SETTINGS_CHOICES[k]:
+            out[k] = incoming[k]
+    if "openDelay" in incoming:
+        try:
+            out["openDelay"] = max(0.0, min(30.0, float(incoming["openDelay"])))
+        except (TypeError, ValueError):
+            pass
+    for k in ("width", "height"):
+        if k in incoming:
+            try:
+                out[k] = max(320, min(4000, int(incoming[k])))
+            except (TypeError, ValueError):
+                pass
+    if "sound" in incoming:
+        out["sound"] = bool(incoming["sound"])
+    return out
+
+
+def _set_marker(path, present):
+    """Create the marker file when `present`, remove it otherwise."""
+    if present:
+        try:
+            os.makedirs(RUN_DIR, exist_ok=True)
+            open(path, "w").close()
+        except OSError:
+            pass
+    else:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
+def write_settings(incoming):
+    """Persist a settings patch: tunables to settings.json, enabled/autoUpdate
+    to their marker files (so the CLI `interlude on/off`, `update off/on` stay
+    consistent with the UI)."""
+    patch = _coerce_settings(incoming)
+    if patch:
+        cur = read_json(SETTINGS_JSON, {})
+        if not isinstance(cur, dict):
+            cur = {}
+        cur.update(patch)
+        tmp = SETTINGS_JSON + ".tmp"
+        try:
+            with open(tmp, "w") as f:
+                json.dump(cur, f, indent=2)
+            os.replace(tmp, SETTINGS_JSON)
+        except OSError:
+            pass
+    if "enabled" in incoming:
+        _set_marker(DISABLED_FILE, not bool(incoming["enabled"]))
+    if "autoUpdate" in incoming:
+        _set_marker(NO_UPDATE_FILE, not bool(incoming["autoUpdate"]))
+    return read_settings()
 
 
 def read_status():
@@ -154,6 +251,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, {"ok": True})
         elif path == "/api/status":
             self._send(200, read_status())
+        elif path == "/api/settings":
+            self._send(200, read_settings())
         elif path == "/api/deck":
             self._send(200, read_json(DECK_FILE, {"words": []}))
         elif path == "/api/state":
@@ -180,6 +279,16 @@ class Handler(BaseHTTPRequestHandler):
             deep_merge(state, incoming)
             write_state(state)
             self._send(200, state)
+        elif path == "/api/settings":
+            try:
+                incoming = json.loads(raw or b"{}")
+            except Exception:
+                self._send(400, {"error": "bad json"})
+                return
+            if not isinstance(incoming, dict):
+                self._send(400, {"error": "expected object"})
+                return
+            self._send(200, write_settings(incoming))
         elif path == "/api/keep":
             # The user pressed Esc / "Keep open" during the close countdown.
             # Record the generation being kept so interlude.py aborts its kill.
