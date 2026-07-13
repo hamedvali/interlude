@@ -19,27 +19,8 @@ KEEP_FILE = os.path.join(RUN_DIR, "keep")
 APP_FILE = os.path.join(BASE_DIR, "app.html")
 DECK_FILE = os.path.join(BASE_DIR, "words.json")
 STATE_FILE = os.path.join(BASE_DIR, "state.json")
-ICON_192 = os.path.join(BASE_DIR, "icon-192.png")
-ICON_512 = os.path.join(BASE_DIR, "icon-512.png")
 
 DEFAULT_PORT = int(os.environ.get("INTERLUDE_PORT", "47615"))
-
-MANIFEST = {
-    "name": "Interlude",
-    "short_name": "Interlude",
-    "description": "Learn words and play while Claude works.",
-    "start_url": "/",
-    "scope": "/",
-    "display": "standalone",
-    "background_color": "#EAE6F8",
-    "theme_color": "#7C4DEB",
-    "icons": [
-        {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png",
-         "purpose": "any maskable"},
-        {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png",
-         "purpose": "any maskable"},
-    ],
-}
 
 DEFAULT_STATE = {
     "words": {},        # word -> {"box": 1, "seen": 0, "correct": 0}
@@ -108,15 +89,6 @@ class Handler(BaseHTTPRequestHandler):
                     self._send(200, f.read(), "text/html; charset=utf-8")
             except FileNotFoundError:
                 self._send(500, {"error": "app.html missing"})
-        elif path == "/manifest.webmanifest":
-            self._send(200, MANIFEST, "application/manifest+json")
-        elif path in ("/icon-192.png", "/icon-512.png"):
-            icon = ICON_192 if path == "/icon-192.png" else ICON_512
-            try:
-                with open(icon, "rb") as f:
-                    self._send(200, f.read(), "image/png")
-            except FileNotFoundError:
-                self._send(404, {"error": "icon missing"})
         elif path == "/api/ping":
             self._send(200, {"ok": True})
         elif path == "/api/status":

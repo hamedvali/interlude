@@ -46,20 +46,14 @@ die()  { printf '\033[1;31m✗\033[0m %s\n' "$*" >&2; exit 1; }
 info "Installing Interlude"
 
 # ---------- preflight ----------
+[ "$(uname -s)" = "Darwin" ] || die "Interlude is macOS-only (it renders with the system WebKit)."
+
 PYTHON="$(command -v python3 || true)"
 [ -n "$PYTHON" ] || die "python3 is required but was not found on your PATH."
 
-have_chrome=0
-for app in \
-  "/Applications/Google Chrome.app" \
-  "/Applications/Microsoft Edge.app" \
-  "/Applications/Brave Browser.app" \
-  "/Applications/Chromium.app"; do
-  [ -d "$app" ] && { have_chrome=1; break; }
-done
-if [ "$have_chrome" -eq 0 ]; then
-  warn "No Chrome/Edge/Brave/Chromium found — Interlude will open in your default"
-  warn "browser instead (that window can't auto-close). Chrome gives the best result."
+if ! command -v osascript >/dev/null 2>&1; then
+  warn "osascript not found — the window will fall back to your default browser"
+  warn "(that window can't auto-close and shows a Dock icon). osascript ships with macOS."
 fi
 
 # ---------- fetch app files into a temp dir ----------
@@ -205,8 +199,8 @@ fi
 # ---------- done ----------
 printf '\n'
 info "Interlude installed."
-say "1. Restart Claude Code (or open a new session) so the hooks load."
-say "2. Optional — give it a dock icon: run  interlude install  and click \"Install\"."
+say "Restart Claude Code (or open a new session) so the hooks load. The window"
+say "opens as a native popup with no Dock icon — nothing else to set up."
 say ""
-say "Controls:  interlude off | on | status | install | stop-server"
+say "Controls:  interlude off | on | status | stop-server"
 say "Uninstall: curl -fsSL https://raw.githubusercontent.com/$REPO/$REF/uninstall.sh | bash"

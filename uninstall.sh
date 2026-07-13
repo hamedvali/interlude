@@ -112,4 +112,3 @@ fi
 
 printf '\n'
 info "Interlude uninstalled. Restart Claude Code to unload the hooks."
-say "If you installed the dock-icon app, remove it in your browser at chrome://apps."

@@ -8,47 +8,44 @@ Decides when to open/close the learn-and-play window:
     on-stop     (Stop)               -> Claude finished; close window
     on-need     (Notification)       -> Claude needs you; close window
 
+The window is a native macOS WKWebView popup (webview.js, run via osascript)
+with an *accessory* activation policy: it shows on screen but adds NO Dock icon
+and no menu bar. Zero dependencies — no Chrome, no PWA install step.
+
 Internal subcommands: _watch <gen>, _open, _close.
-Admin: on | off | install | status | version | stop-server.
+Admin: on | off | status | version | stop-server.
 
 Kill switch: set INTERLUDE_DISABLED=1, or run `interlude off`.
 Every hook entry point returns fast (heavy work is spawned detached).
 """
 import json
 import os
-import re
+import shutil
 import signal
 import subprocess
 import sys
 import time
 import urllib.request
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RUN_DIR = os.path.join(BASE_DIR, ".run")
 STATUS_FILE = os.path.join(RUN_DIR, "status")
 PORT_FILE = os.path.join(RUN_DIR, "port")
-CHROME_PID = os.path.join(RUN_DIR, "chrome.pid")
+WINDOW_PID = os.path.join(RUN_DIR, "window.pid")
 SERVER_PID = os.path.join(RUN_DIR, "server.pid")
 SERVER_LOG = os.path.join(RUN_DIR, "server.log")
 WATCH_PID = os.path.join(RUN_DIR, "watch.pid")
 DISABLED = os.path.join(RUN_DIR, "disabled")
 KEEP_FILE = os.path.join(RUN_DIR, "keep")
-CHROME_PROFILE = os.path.join(RUN_DIR, "chrome-profile")
-APP_BASELINE = os.path.join(RUN_DIR, "app-baseline.json")
-APP_ID_FILE = os.path.join(RUN_DIR, "app-id")
 
 SERVER_PY = os.path.join(BASE_DIR, "server.py")
+WEBVIEW_JS = os.path.join(BASE_DIR, "webview.js")
 DEFAULT_PORT = int(os.environ.get("INTERLUDE_PORT", "47615"))
 OPEN_DELAY = float(os.environ.get("INTERLUDE_DELAY", "3"))
-
-CHROME_CANDIDATES = [
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
-    "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
-    "/Applications/Chromium.app/Contents/MacOS/Chromium",
-]
+WINDOW_W = int(os.environ.get("INTERLUDE_WIDTH", "1240"))
+WINDOW_H = int(os.environ.get("INTERLUDE_HEIGHT", "840"))
 
 
 # ---------- small helpers ----------
@@ -144,97 +141,6 @@ def ping(port):
         return False
 
 
-def find_chrome():
-    for path in CHROME_CANDIDATES:
-        if os.path.exists(path):
-            return path
-    return None
-
-
-_APP_ID_RE = re.compile(r"^[a-p]{32}$")
-
-
-def _manifest_app_ids():
-    """Set of Chrome web-app ids (32 chars a-p) present in the throwaway profile.
-
-    Chrome stores each installed/preinstalled app under
-    "<profile>/.../Web Applications/Manifest Resources/<app-id>/". A fresh
-    profile is auto-seeded with Google's default apps (Docs, Gmail, ...), so a
-    bare scan can't tell those from ours — see installed_app_id().
-    """
-    ids = set()
-    bases = [
-        os.path.join(CHROME_PROFILE, "Default", "Web Applications", "Manifest Resources"),
-        os.path.join(CHROME_PROFILE, "Web Applications", "Manifest Resources"),
-    ]
-    for base in bases:
-        try:
-            for name in os.listdir(base):
-                if _APP_ID_RE.match(name) and os.path.isdir(os.path.join(base, name)):
-                    ids.add(name)
-        except OSError:
-            continue
-    return ids
-
-
-def installed_app_id():
-    """Return the id of the *Interlude* PWA in our throwaway profile, or None.
-
-    Chrome's app id is an opaque hash we can't reliably recompute, and the
-    profile ships with Google's default apps, so we identify Interlude by
-    exclusion: `interlude install` records the pre-existing app ids to
-    app-baseline.json, and Interlude is whatever id shows up afterward. The
-    discovered id is pinned to .run/app-id so later default-app churn can't
-    confuse it. Without a baseline (never installed) we return None and the
-    caller falls back to --app.
-    """
-    pinned = None
-    try:
-        with open(APP_ID_FILE) as f:
-            pinned = f.read().strip()
-    except OSError:
-        pass
-    present = _manifest_app_ids()
-    if pinned and pinned in present:
-        return pinned
-    try:
-        with open(APP_BASELINE) as f:
-            baseline = set(json.load(f))
-    except Exception:
-        return None
-    new = sorted(present - baseline)
-    if not new:
-        return None
-    app_id = new[0]
-    try:
-        with open(APP_ID_FILE, "w") as f:
-            f.write(app_id)
-    except OSError:
-        pass
-    return app_id
-
-
-def ensure_baseline():
-    """Snapshot the profile's pre-install app ids so a toast-install shows up.
-
-    The in-app install toast lets the user install Interlude from a normal
-    window; afterward installed_app_id() finds it by exclusion (present −
-    baseline). We can only record a useful baseline once Chrome has seeded its
-    default apps, so we wait until the profile has at least one app and no
-    baseline exists yet. `interlude install` records this explicitly too.
-    """
-    if os.path.exists(APP_BASELINE):
-        return
-    ids = _manifest_app_ids()
-    if not ids:
-        return  # fresh profile not seeded yet; try again on a later open
-    try:
-        with open(APP_BASELINE, "w") as f:
-            json.dump(sorted(ids), f)
-    except OSError:
-        pass
-
-
 # ---------- server lifecycle ----------
 def ensure_server():
     port = read_port()
@@ -262,53 +168,41 @@ def ensure_server():
 
 # ---------- window lifecycle ----------
 def do_open():
-    if alive(pid_from(CHROME_PID)):
+    """Open the Interlude popup: a native WKWebView window with no Dock icon.
+
+    Rendered by webview.js via osascript (JavaScript for Automation). We track
+    the osascript PID so do_close() can kill it cleanly.
+    """
+    if alive(pid_from(WINDOW_PID)):
         return  # already showing
     port = ensure_server()
     if not port:
         return
-    chrome = find_chrome()
-    url = f"http://127.0.0.1:{port}/"
     ensure_run()
-    if not chrome:
-        # Fallback: open in the default browser (cannot auto-close a plain tab).
+    url = f"http://127.0.0.1:{port}/"
+    osa = shutil.which("osascript")
+    if not osa or not os.path.exists(WEBVIEW_JS):
+        # Last-ditch fallback: default browser (can't auto-close a plain tab,
+        # and this one does show a Dock icon). Should never happen on macOS.
         subprocess.Popen(["open", url], stdin=subprocess.DEVNULL,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return
-    ensure_baseline()
-    app_id = installed_app_id()
-    if app_id:
-        # Installed: launch the PWA (own dock icon, clean standalone frame).
-        launch = [f"--app-id={app_id}"]
-    else:
-        # Not installed yet: open a NORMAL window so Chrome fires
-        # beforeinstallprompt and the in-app "Install" toast can offer a
-        # one-click install. Switches to --app-id automatically afterward.
-        launch = ["--new-window", url]
-    args = [
-        chrome,
-        *launch,
-        f"--user-data-dir={CHROME_PROFILE}",
-        "--window-size=1240,840",
-        "--no-first-run",
-        "--no-default-browser-check",
-        "--disable-session-crashed-bubble",
-        "--disable-infobars",
-    ]
-    p = spawn_detached(args)
-    with open(CHROME_PID, "w") as f:
+    p = spawn_detached([osa, "-l", "JavaScript", WEBVIEW_JS,
+                        url, str(WINDOW_W), str(WINDOW_H)])
+    with open(WINDOW_PID, "w") as f:
         f.write(str(p.pid))
 
 
 def do_close():
     """Let the window run its ~3s close countdown and self-close, then force it.
 
-    The web app shows a "closing in 3, 2, 1" modal and closes itself; we wait a
-    bit past that as a backstop. Aborts if Claude becomes busy again mid-close,
+    The web app shows a "closing in 3, 2, 1" modal and calls window.close();
+    webview.js turns that into an exit. We wait a bit past the countdown as a
+    backstop and then kill by PID. Aborts if Claude becomes busy again mid-close,
     or if the user pressed Esc / "Keep open" (keep_requested), so we never kill
     a window that should stay up.
     """
-    pid = pid_from(CHROME_PID)
+    pid = pid_from(WINDOW_PID)
     if pid:
         for _ in range(48):  # ~4.8s: covers the 3s in-app countdown + margin
             if not alive(pid):
@@ -335,7 +229,7 @@ def do_close():
                 except Exception:
                     pass
     try:
-        os.remove(CHROME_PID)
+        os.remove(WINDOW_PID)
     except OSError:
         pass
 
@@ -372,7 +266,7 @@ def on_tool():
     st = read_status()
     gen = int(st.get("gen", 0))
     write_status(True, gen)  # keep same generation
-    if alive(pid_from(CHROME_PID)):
+    if alive(pid_from(WINDOW_PID)):
         return  # window already up
     if alive(pid_from(WATCH_PID)):
         return  # a watcher is already pending
@@ -408,45 +302,6 @@ def admin_on():
     print("Interlude enabled.")
 
 
-def admin_install():
-    """Open a normal Chrome window (in our throwaway profile) so you can click
-    "Install Interlude" once. After that, do_open() launches the installed app
-    (own dock icon; clicking it reopens Interlude, not an empty window)."""
-    port = ensure_server()
-    if not port:
-        print("Could not start the Interlude server.")
-        return
-    chrome = find_chrome()
-    if not chrome:
-        print("Chrome (or Edge/Brave/Chromium) not found; cannot install as an app.")
-        return
-    if installed_app_id():
-        print("Interlude is already installed. Nothing to do.")
-        return
-    ensure_run()
-    # Record the apps already present (Chrome's defaults) so we can later
-    # identify Interlude as the one that appears after you click Install.
-    with open(APP_BASELINE, "w") as f:
-        json.dump(sorted(_manifest_app_ids()), f)
-    try:
-        os.remove(APP_ID_FILE)
-    except OSError:
-        pass
-    url = f"http://127.0.0.1:{port}/"
-    spawn_detached([
-        chrome,
-        "--new-window", url,
-        f"--user-data-dir={CHROME_PROFILE}",
-        "--no-first-run",
-        "--no-default-browser-check",
-    ])
-    print("A Chrome window opened at Interlude.")
-    print('Install it: click the install icon in the address bar (or ⋮ menu →')
-    print('  "Cast, save, and share" → "Install page as app…"), then confirm "Install".')
-    print("Close that window afterward. From then on, Interlude launches as its own")
-    print("app with its own dock icon whenever Claude is working.")
-
-
 def admin_status():
     port = read_port()
     print(json.dumps({
@@ -455,9 +310,8 @@ def admin_status():
         "status": read_status(),
         "port": port,
         "server_up": ping(port),
-        "window_open": alive(pid_from(CHROME_PID)),
-        "chrome": find_chrome(),
-        "installed_app": installed_app_id(),
+        "window_open": alive(pid_from(WINDOW_PID)),
+        "renderer": bool(shutil.which("osascript")) and os.path.exists(WEBVIEW_JS),
     }, indent=2))
 
 
@@ -490,7 +344,6 @@ COMMANDS = {
     "_close": do_close,
     "on": admin_on,
     "off": admin_off,
-    "install": admin_install,
     "status": admin_status,
     "version": admin_version,
     "stop-server": admin_stop_server,
