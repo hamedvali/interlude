@@ -29,7 +29,7 @@ your way exactly when it's time to read or reply.
 ## ✨ Highlights
 
 - 🧠 **Learn while you wait** — spaced-repetition flashcards (Leitner boxes) surface the words you're about to forget.
-- 🎮 **Four quick word games** — Definition Quiz, Word Scramble, Hangman, and a Vocab Wordle.
+- 🎮 **Word games + Arcade** — four quick word games (Definition Quiz, Word Scramble, Hangman, Vocab Wordle) plus an **Arcade** section with a vendored, MIT-licensed [2048](https://github.com/gabrielecirulli/2048) that **saves and resumes mid-game** — stop in the middle and pick up right where you left off.
 - 📈 **Progress you can see** — streaks, mastery gauge, review history, and per-box charts.
 - 🪄 **Zero friction** — appears on its own while Claude thinks, closes on its own when Claude's done.
 - 🕶️ **No Dock icon, no menu bar** — a native WKWebView popup, not a browser tab or PWA.
@@ -104,12 +104,35 @@ its own process, and re-surfaces itself on the next prompt if it's already open.
 
 <br />
 
+## 🔄 Auto-update
+
+Once installed, Interlude keeps itself current. It checks its GitHub repo in the background
+(a few times a day, throttled), and when a newer version is out it **downloads and applies it
+for you** — copying the new files in, preserving your progress and saved games, and restarting
+its own server on the same port. The open window shows a small toast through the whole
+lifecycle (*downloading → installing → updated*) and reloads itself when it's done. Code
+updates need no action; only a change to the Claude Code **hook wiring** asks you to restart
+Claude Code, and the toast tells you when that's the case.
+
+It only ever **copies files** from the same pinned HTTPS repo you installed from — it never
+runs a downloaded script — and every step is best-effort, so a failed check never disrupts a
+hook or the app.
+
+```bash
+interlude update       # check + apply now (ignores the throttle)
+interlude update off   # disable auto-update  (or set INTERLUDE_NO_UPDATE=1)
+interlude update on    # re-enable
+```
+
+<br />
+
 ## 🎛️ Controls
 
 ```bash
 interlude off          # pause Interlude (stops opening the window)
 interlude on           # resume
 interlude status       # show version, server, and window state as JSON
+interlude update       # check for and apply a new version now
 interlude stop-server  # stop the background web server
 interlude version      # print the version
 ```
@@ -159,6 +182,12 @@ The app lives in `app/`:
 | `webview.js`    | The native WKWebView popup, run via `osascript`              |
 | `server.py`     | Zero-dependency stdlib web server                            |
 | `app.html`      | The Learn / Play / Progress UI                               |
+| `games/`        | Vendored MIT arcade games + the save/resume bridge & theme   |
+
+Arcade games live in `app/games/<id>/` with their upstream `LICENSE` kept verbatim. A tiny
+shared `games/_bridge.js` mirrors each game's `localStorage` to the server so play resumes
+mid-game, and `games/_theme.css` blends them with the Interlude theme. See
+[`app/games/CREDITS.md`](app/games/CREDITS.md) for attributions and how to add more.
 
 `INTERLUDE_HOME` overrides the install location — handy for isolated testing.
 
@@ -174,6 +203,9 @@ The app lives in `app/`:
 ## 📄 License
 
 [MIT](LICENSE) © Hamed Valigholizadeh
+
+Bundled arcade games are third-party open-source projects under their own (MIT) licenses,
+kept verbatim in `app/games/<id>/LICENSE`. See [`app/games/CREDITS.md`](app/games/CREDITS.md).
 
 <div align="center">
 <br />

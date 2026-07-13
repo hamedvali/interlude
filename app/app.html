@@ -121,6 +121,26 @@
   .close-hint { margin-top:11px; font-size:12px; color:var(--ink-3); }
   .close-hint kbd { font:inherit; font-size:11px; background:var(--surface-2); border:1px solid var(--line);
     border-bottom-width:2px; border-radius:6px; padding:1px 6px; color:var(--ink-2); }
+  /* update toast */
+  .toast { position:fixed; right:22px; bottom:22px; z-index:1200; display:flex; align-items:center; gap:12px;
+    max-width:360px; background:var(--frame); border:1px solid var(--line); border-radius:16px;
+    padding:13px 15px; box-shadow:var(--shadow); transform:translateY(18px); opacity:0; pointer-events:none;
+    transition:opacity .2s ease, transform .2s ease; }
+  .toast.show { transform:translateY(0); opacity:1; pointer-events:auto; }
+  .toast .t-ico { width:34px; height:34px; border-radius:10px; flex:0 0 auto; display:grid; place-items:center;
+    background:var(--violet-soft); color:var(--violet); }
+  .toast .t-ico svg { width:18px; height:18px; }
+  .toast .t-body { min-width:0; flex:1; }
+  .toast .t-title { font-size:14px; font-weight:700; color:var(--ink-1); letter-spacing:-.01em; }
+  .toast .t-sub { font-size:12.5px; color:var(--ink-2); margin-top:1px; }
+  .toast .t-act { border:0; background:linear-gradient(180deg,var(--rail-1),var(--rail-2)); color:#fff;
+    font:inherit; font-size:12.5px; font-weight:650; border-radius:10px; padding:8px 12px; cursor:pointer;
+    flex:0 0 auto; transition:filter .12s; }
+  .toast .t-act:hover { filter:brightness(1.06); }
+  .toast .t-act.ghost { background:var(--surface-2); color:var(--ink-2); }
+  .toast .spin { width:19px; height:19px; border-radius:50%; border:2.4px solid var(--violet-soft);
+    border-top-color:var(--violet); animation:tspin .7s linear infinite; }
+  @keyframes tspin { to { transform:rotate(360deg); } }
   .top-right { display:flex; align-items:center; gap:11px; }
   .chip { display:inline-flex; align-items:center; gap:8px; background:var(--frame);
     border:1px solid var(--line); border-radius:999px; padding:8px 14px; font-size:13px;
@@ -244,6 +264,10 @@
   .toggle::after { content:""; position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%;
     background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.22); transition:.15s; }
   .toggle.on { background:rgba(255,255,255,.5); } .toggle.on::after { left:17px; }
+  /* arcade game embed */
+  .card.arcade { padding:0; overflow:hidden; }
+  .arcade-frame { width:100%; height:600px; max-height:74vh; border:0; display:block; background:var(--bg-page); border-radius:var(--r-card); }
+  .sec-title.sub { margin-top:24px; }
 
   /* game internals */
   .prompt-word { font-size:28px; font-weight:750; letter-spacing:-.02em; margin:2px 0; }
@@ -369,6 +393,7 @@
     </div>
   </div>
   <div id="tooltip"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script>
 "use strict";
@@ -379,6 +404,7 @@ const api = {
   async state(){ return await (await fetch("/api/state")).json(); },
   async save(s){ try{ await fetch("/api/state",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(s)}); }catch{} },
   async keep(gen){ try{ await fetch("/api/keep",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({gen})}); }catch{} },
+  async ackUpdate(){ try{ await fetch("/api/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ack:true})}); }catch{} },
 };
 const todayStr = ()=> new Date().toISOString().slice(0,10);
 const shuffle = a=>{ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
@@ -397,6 +423,20 @@ const I = {
   moon:`<svg class="icon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,
   checkmini:`<svg class="icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>`,
 };
+/* arcade game icons */
+Object.assign(I, {
+  tiles:`<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>`,
+  fifteen:`<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>`,
+  bomb:`<svg class="icon" viewBox="0 0 24 24"><circle cx="10.5" cy="14" r="6.5"/><path d="M15.5 9l2-2M18 4.5h3M19.5 3v3"/></svg>`,
+  blocks:`<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="8" y="13" width="8" height="8" rx="1"/></svg>`,
+  snake:`<svg class="icon" viewBox="0 0 24 24"><path d="M5 8a3.5 3.5 0 0 1 3.5-3.5h3A3.5 3.5 0 0 1 12 11.5H9A3.5 3.5 0 0 0 9 18.5h8"/><circle cx="18" cy="16.5" r="1.1" fill="currentColor" stroke="none"/></svg>`,
+  brick:`<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="5" rx="1"/><rect x="13" y="4" width="8" height="5" rx="1"/><rect x="8" y="11" width="8" height="5" rx="1"/><circle cx="12" cy="20" r="1.4"/></svg>`,
+  bird:`<svg class="icon" viewBox="0 0 24 24"><path d="M3 11a6 6 0 0 1 11-3.5L17 5v5l3 1-4.5 2A6 6 0 0 1 3 11Z"/></svg>`,
+  cards:`<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="6" width="11" height="14" rx="2"/><path d="M8.5 6V5a2 2 0 0 1 2-2H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1"/></svg>`,
+  bulb:`<svg class="icon" viewBox="0 0 24 24"><path d="M9.5 18h5M10.5 21h3M12 3a6 6 0 0 0-3.8 10.6c.8.7 1.3 1.5 1.3 2.4h5c0-.9.5-1.7 1.3-2.4A6 6 0 0 0 12 3Z"/></svg>`,
+  connect:`<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8" cy="10" r="1.6"/><circle cx="12" cy="10" r="1.6"/><circle cx="16" cy="14" r="1.6"/></svg>`,
+  xo:`<svg class="icon" viewBox="0 0 24 24"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>`,
+});
 const HERO_ART = `<svg viewBox="0 0 220 150" width="220" height="150" fill="none" aria-hidden="true">
   <circle cx="152" cy="44" r="27" fill="#F7B733"/><circle cx="152" cy="44" r="27" fill="#FBD277" opacity=".45"/>
   <g fill="#ffffff" opacity=".85"><ellipse cx="58" cy="38" rx="26" ry="13"/><ellipse cx="94" cy="45" rx="19" ry="10"/></g>
@@ -517,33 +557,71 @@ function boxBars(boxCounts){
 }
 
 /* ---------------- PLAY ---------------- */
-const GAMES = [
-  { id:"quiz",     name:"Definition Quiz", color:"violet", ico:I.quiz,    mount:mountQuiz },
-  { id:"scramble", name:"Word Scramble",   color:"yellow", ico:I.shuffle, mount:mountScramble },
-  { id:"hangman",  name:"Hangman",         color:"coral",  ico:I.type,    mount:mountHangman },
-  { id:"wordle",   name:"Vocab Wordle",    color:"cyan",   ico:I.grid,    mount:mountWordle },
+const WORD_GAMES = [
+  { id:"quiz",     name:"Definition Quiz", color:"violet", ico:I.quiz,    kind:"mount", mount:mountQuiz },
+  { id:"scramble", name:"Word Scramble",   color:"yellow", ico:I.shuffle, kind:"mount", mount:mountScramble },
+  { id:"hangman",  name:"Hangman",         color:"coral",  ico:I.type,    kind:"mount", mount:mountHangman },
+  { id:"wordle",   name:"Vocab Wordle",    color:"cyan",   ico:I.grid,    kind:"mount", mount:mountWordle },
 ];
-let activeGame = GAMES[0].id;
+// Vendored open-source arcade games (see app/games/CREDITS.md). Each is served
+// from /games/<id>/ and saves/resumes via the bridge + the /api/state backend.
+// To add a game: vendor it under app/games/<id>/ (preserving its LICENSE), wire in
+// /games/_theme.css + /games/_bridge.js, then add an entry below. The remaining
+// classics are staged as commented rows — uncomment once vendored.
+const ARCADE_GAMES = [
+  { id:"2048",       name:"2048",        color:"violet", ico:I.tiles,   kind:"arcade" },
+  // { id:"fifteen",    name:"15-Puzzle",   color:"yellow", ico:I.fifteen, kind:"arcade" },
+  // { id:"minesweeper",name:"Minesweeper", color:"coral",  ico:I.bomb,    kind:"arcade" },
+  // { id:"blocks",     name:"Blocks",      color:"cyan",   ico:I.blocks,  kind:"arcade" },
+  // { id:"snake",      name:"Snake",       color:"violet", ico:I.snake,   kind:"arcade" },
+  // { id:"breakout",   name:"Breakout",    color:"yellow", ico:I.brick,   kind:"arcade" },
+  // { id:"flappy",     name:"Flappy",      color:"coral",  ico:I.bird,    kind:"arcade" },
+  // { id:"memory",     name:"Memory Match",color:"cyan",   ico:I.cards,   kind:"arcade" },
+  // { id:"simon",      name:"Simon",       color:"violet", ico:I.bulb,    kind:"arcade" },
+  // { id:"connect4",   name:"Connect Four",color:"yellow", ico:I.connect, kind:"arcade" },
+  // { id:"tictactoe",  name:"Tic-Tac-Toe", color:"coral",  ico:I.xo,      kind:"arcade" },
+];
+const ALL_GAMES = ()=> WORD_GAMES.concat(ARCADE_GAMES);
+let activeGame = WORD_GAMES[0].id, arcadeFrame=null;
+
+function gameCard(g){
+  const on=g.id===activeGame;
+  let sub;
+  if(g.kind==="arcade"){
+    const rec=(STATE.arcade||{})[g.id];
+    const has=rec && rec.store && rec.store!=="{}";
+    sub = rec && rec.best ? ("Best "+rec.best) : (has ? "Resume" : "Play");
+  } else {
+    const best=STATE.games[g.id]?.best||0, wins=STATE.games[g.id]?.wins||0;
+    sub = g.id==="wordle" ? ("Best "+best) : (wins+" won");
+  }
+  return `<button class="game-card ${g.color} ${on?'on':''}" data-g="${g.id}">
+      <div class="gc-top"><span class="gc-ico">${g.ico}</span><span class="toggle ${on?'on':''}"></span></div>
+      <div class="gc-name">${g.name}</div>
+      <div class="gc-sub">${sub}</div>
+    </button>`;
+}
 function renderPlay(){
-  const el=$("#play");
+  const el=$("#play"); arcadeFrame=null;
   el.innerHTML=`
-    <h2 class="sec-title">Games</h2>
-    <div class="game-grid">
-      ${GAMES.map(g=>{
-        const on=g.id===activeGame; const best=STATE.games[g.id]?.best||0; const wins=STATE.games[g.id]?.wins||0;
-        return `<button class="game-card ${g.color} ${on?'on':''}" data-g="${g.id}">
-          <div class="gc-top"><span class="gc-ico">${g.ico}</span><span class="toggle ${on?'on':''}"></span></div>
-          <div class="gc-name">${g.name}</div>
-          <div class="gc-sub">${g.id==='wordle'?('Best '+best):(wins+' won')}</div>
-        </button>`;
-      }).join("")}
-    </div>
+    <h2 class="sec-title">Word games</h2>
+    <div class="game-grid">${WORD_GAMES.map(gameCard).join("")}</div>
+    <h2 class="sec-title sub">Arcade</h2>
+    <div class="game-grid">${ARCADE_GAMES.map(gameCard).join("")}</div>
     <div class="card" id="game"></div>`;
   el.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{ activeGame=b.dataset.g; renderPlay(); });
-  bumpGame(activeGame,"played");
   keyHandler=null;
-  GAMES.find(g=>g.id===activeGame).mount($("#game"));
+  const g=ALL_GAMES().find(x=>x.id===activeGame);
+  if(g.kind==="arcade") mountArcade($("#game"),g);
+  else { bumpGame(activeGame,"played"); g.mount($("#game")); }
 }
+function mountArcade(host,g){
+  const theme=isDark()?"dark":"light";
+  host.classList.add("arcade");
+  host.innerHTML=`<iframe class="arcade-frame" title="${g.name}" src="${g.src||('/games/'+g.id+'/index.html')}?theme=${theme}"></iframe>`;
+  arcadeFrame=host.querySelector("iframe");
+}
+function postArcade(msg){ try{ if(arcadeFrame&&arcadeFrame.contentWindow) arcadeFrame.contentWindow.postMessage(msg,"*"); }catch(e){} }
 function bumpGame(id,key,val){
   if(!STATE.games[id]) STATE.games[id]={played:0,wins:0,best:0};
   if(key==="best") STATE.games[id].best=Math.max(STATE.games[id].best||0,val);
@@ -732,6 +810,7 @@ function renderProgress(){
 /* ---------------- nav + status ---------------- */
 const RENDER={ learn:renderLearn, play:renderPlay, progress:renderProgress };
 function switchView(v){
+  if(v!=="play") postArcade({type:"interlude:save"});   // save arcade progress when leaving Play
   document.querySelectorAll(".rico").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
   document.querySelectorAll(".view").forEach(sec=>sec.classList.toggle("active",sec.id===v));
   RENDER[v]();
@@ -744,7 +823,7 @@ const themeBtn=$("#theme");
 function isDark(){ const t=document.documentElement.getAttribute("data-theme");
   return t? t==="dark" : matchMedia("(prefers-color-scheme:dark)").matches; }
 function applyThemeIcon(){ themeBtn.innerHTML = isDark()? I.sun : I.moon; }
-themeBtn.onclick=()=>{ document.documentElement.setAttribute("data-theme", isDark()?"light":"dark"); applyThemeIcon(); };
+themeBtn.onclick=()=>{ const dark=!isDark(); document.documentElement.setAttribute("data-theme", dark?"dark":"light"); applyThemeIcon(); postArcade({type:"interlude:theme", theme: dark?"dark":"light"}); };
 
 let prevBusy=null, latestBusy=null, closing=false, kept=false, closeTimer=null, curGen=0;
 const COUNTDOWN=3;                 // seconds shown before the window closes itself
@@ -757,6 +836,7 @@ function keepOpen(){                 // user chose to stay — cancel countdown,
 
 function beginCountdown(){
   if(closing) return;
+  postArcade({type:"interlude:save"});   // snapshot any in-play arcade game before we may close
   closing=true; kept=false;
   const modal=$("#closeModal"), cnt=$("#closeCount");
   let n=COUNTDOWN; cnt.textContent=n; modal.hidden=false;
@@ -771,8 +851,60 @@ function beginCountdown(){
 $("#closeKeep").onclick=keepOpen;
 window.addEventListener("keydown",e=>{ if(e.key==="Escape" && closing){ e.preventDefault(); keepOpen(); } });
 
+/* ---------------- auto-update toast ---------------- */
+let loadedVersion=null, updateReloadArmed=false, toastSig=null, lastUpdPhase=null;
+const UPD_ICON = {
+  download:`<svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>`,
+  check:`<svg class="icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>`,
+  rocket:`<svg class="icon" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.9.7-2.2-.1-3a2.1 2.1 0 0 0-2.9 0Z"/><path d="M12 15l-3-3c1-5 4-8 9-8 0 5-3 8-8 9Z"/><path d="M9 12H5s.5-2.8 2-4 4-1 4-1"/></svg>`,
+  alert:`<svg class="icon" viewBox="0 0 24 24"><path d="M12 4 2.5 20h19L12 4Z"/><path d="M12 10v4M12 17h.01"/></svg>`,
+};
+function hideToast(){ $("#toast").classList.remove("show"); toastSig=null; }
+function showToast(o){
+  const sig=(o.spinner?"spin":o.icon||"")+"|"+(o.title||"")+"|"+(o.sub||"")+"|"+(o.action?o.action.label:"");
+  if(sig===toastSig) return;   // identical toast already up — avoid flicker
+  toastSig=sig;
+  const el=$("#toast");
+  const iconHtml=o.spinner
+    ? `<div class="t-ico" style="background:transparent"><div class="spin"></div></div>`
+    : `<div class="t-ico">${o.icon||UPD_ICON.download}</div>`;
+  el.innerHTML=`${iconHtml}<div class="t-body"><div class="t-title">${o.title||""}</div>${o.sub?`<div class="t-sub">${o.sub}</div>`:""}</div>${o.action?`<button class="t-act ${o.action.ghost?"ghost":""}" id="tAct">${o.action.label}</button>`:""}`;
+  if(o.action) $("#tAct",el).onclick=o.action.onClick;
+  el.classList.add("show");
+}
+function renderUpdate(u, version){
+  u=u||{phase:"idle"}; const phase=u.phase||"idle", target=u.version||version||"";
+  const entering=(phase!==lastUpdPhase); lastUpdPhase=phase;
+  switch(phase){
+    case "downloading":
+      showToast({spinner:true, title:"Downloading update", sub:`v${target} is on the way…`}); break;
+    case "downloaded": case "applying":
+      showToast({spinner:true, title:"Installing update", sub:`Updating to v${target}…`}); break;
+    case "updated":
+      if(loadedVersion && target && target!==loadedVersion){
+        showToast({icon:UPD_ICON.rocket, title:`Updated to v${target}`, sub:"Reloading…"});
+        if(!updateReloadArmed){ updateReloadArmed=true;
+          try{ postArcade({type:"interlude:save"}); }catch(e){}   // flush any in-play game first
+          setTimeout(()=>{ try{ location.reload(); }catch(e){} }, 1300);
+        }
+      } else hideToast();          // already on the new version
+      break;
+    case "restart_needed":
+      showToast({icon:UPD_ICON.check, title:`Update installed${target?` (v${target})`:""}`,
+        sub:"Restart Claude Code to finish.",
+        action:{label:"Dismiss", ghost:true, onClick:()=>{ api.ackUpdate(); hideToast(); }}});
+      break;
+    case "error":
+      showToast({icon:UPD_ICON.alert, title:"Update failed", sub:"Will retry later."});
+      if(entering) setTimeout(()=>{ api.ackUpdate(); hideToast(); }, 5000);
+      break;
+    default: hideToast();
+  }
+}
+
 async function poll(){
   const s=await api.status(); latestBusy=s.busy; curGen=s.gen||0;
+  if(loadedVersion===null && s.version) loadedVersion=s.version;
   const st=$("#status"), t=$("#status-text");
   if(s.busy){
     st.className="status-pill working"; t.textContent="Claude is working…";
@@ -782,12 +914,13 @@ async function poll(){
     if(prevBusy===true && !kept) beginCountdown();
   }
   prevBusy=s.busy;
+  if(s.update!==undefined) renderUpdate(s.update, s.version);   // skip on transient fetch failures
 }
 
 async function init(){
   DECK=(await api.deck()).map(c=>({word:c.word,pos:c.pos,def:c.definition,ex:c.example,distractors:c.distractors||[]}));
   STATE=await api.state();
-  STATE.words=STATE.words||{}; STATE.games=STATE.games||{}; STATE.history=STATE.history||[];
+  STATE.words=STATE.words||{}; STATE.games=STATE.games||{}; STATE.arcade=STATE.arcade||{}; STATE.history=STATE.history||[];
   applyThemeIcon(); updateChrome();
   switchView("learn");
   poll(); setInterval(poll,800);

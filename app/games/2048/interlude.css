@@ -1,0 +1,30 @@
+/* Interlude fit + theme for the vendored 2048 (keeps its iconic board). */
+html, body { background: var(--il-bg) !important; margin: 0 !important; padding: 0 !important; }
+body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--il-font) !important;
+}
+.container {
+  width: 500px;
+  max-width: 94vw;
+  margin: 0 !important;
+}
+h1.title { margin: 0 0 12px !important; color: var(--il-violet) !important; font-size: 64px !important; }
+.above-game { text-align: right; }
+
+/* Trim the marketing / help copy so the board fills the popup cleanly. */
+.game-intro,
+.game-explanation,
+.container > p,
+.container > hr { display: none !important; }
+
+/* Dark mode: darken the frame while leaving 2048's recognisable tiles intact. */
+html.il-dark { color-scheme: dark; }
+html.il-dark .grid-container { background: rgba(255,255,255,.06); }
+html.il-dark .grid-cell { background: rgba(255,255,255,.05); }
+html.il-dark .score-container,
+html.il-dark .best-container { background: #26203C; }
+html.il-dark .restart-button { background: #26203C; color: var(--il-ink-1); }

@@ -21,13 +21,18 @@ Every hook entry point returns fast (heavy work is spawned detached).
 import fcntl
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
 import sys
+import tarfile
+import tempfile
 import time
 import urllib.request
 
+# Fallback only; the canonical version lives in the VERSION file next to this
+# script (so it ships under app/ and updates with the rest of the app).
 __version__ = "1.2.0"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -42,13 +47,25 @@ DISABLED = os.path.join(RUN_DIR, "disabled")
 KEEP_FILE = os.path.join(RUN_DIR, "keep")
 FRONT_FILE = os.path.join(RUN_DIR, "front")
 OPEN_LOCK = os.path.join(RUN_DIR, "open.lock")
+UPDATE_FILE = os.path.join(RUN_DIR, "update.json")
+UPDATE_LOCK = os.path.join(RUN_DIR, "update.lock")
+NO_UPDATE = os.path.join(RUN_DIR, "no-update")
 
 SERVER_PY = os.path.join(BASE_DIR, "server.py")
 WEBVIEW_JS = os.path.join(BASE_DIR, "webview.js")
+VERSION_FILE = os.path.join(BASE_DIR, "VERSION")
 DEFAULT_PORT = int(os.environ.get("INTERLUDE_PORT", "47615"))
 OPEN_DELAY = float(os.environ.get("INTERLUDE_DELAY", "3"))
 WINDOW_W = int(os.environ.get("INTERLUDE_WIDTH", "1240"))
 WINDOW_H = int(os.environ.get("INTERLUDE_HEIGHT", "840"))
+
+# --- auto-update settings (same source install.sh fetches from) ---
+UPDATE_REPO = os.environ.get("INTERLUDE_REPO", "hamedvali/interlude")
+UPDATE_REF = os.environ.get("INTERLUDE_REF", "main")
+# how often to check, in seconds (default 6h); checks are throttled per this
+UPDATE_INTERVAL = float(os.environ.get("INTERLUDE_UPDATE_INTERVAL", str(6 * 3600)))
+CLAUDE_DIR = os.environ.get("CLAUDE_CONFIG_DIR", os.path.join(os.path.expanduser("~"), ".claude"))
+SETTINGS_FILE = os.path.join(CLAUDE_DIR, "settings.json")
 
 
 # ---------- small helpers ----------
@@ -288,6 +305,314 @@ def do_watch(gen):
         pass
 
 
+# ---------- auto-update ----------
+def local_version():
+    try:
+        with open(VERSION_FILE) as f:
+            v = f.read().strip()
+            if v:
+                return v
+    except Exception:
+        pass
+    return __version__
+
+
+def parse_ver(s):
+    parts = re.findall(r"\d+", s or "")
+    return tuple(int(p) for p in parts[:4]) if parts else (0,)
+
+
+def ver_gt(a, b):
+    """True if version string a is numerically greater than b."""
+    pa, pb = list(parse_ver(a)), list(parse_ver(b))
+    n = max(len(pa), len(pb))
+    pa += [0] * (n - len(pa))
+    pb += [0] * (n - len(pb))
+    return pa > pb
+
+
+def read_update():
+    try:
+        with open(UPDATE_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {"phase": "idle"}
+
+
+def write_update(phase, **fields):
+    ensure_run()
+    data = read_update()
+    data["phase"] = phase
+    data.update(fields)
+    tmp = UPDATE_FILE + ".tmp"
+    try:
+        with open(tmp, "w") as f:
+            json.dump(data, f)
+        os.replace(tmp, UPDATE_FILE)
+    except OSError:
+        pass
+    return data
+
+
+def update_disabled():
+    return os.environ.get("INTERLUDE_NO_UPDATE") == "1" or os.path.exists(NO_UPDATE)
+
+
+def register_hooks():
+    """Idempotently register our 4 hooks in Claude Code's settings.json.
+
+    Mirrors install.sh's hook block so the app can re-register its own (possibly
+    new) hook wiring after an update. Returns True if settings.json actually
+    changed — the one case that needs a Claude Code restart to take effect.
+    """
+    python = sys.executable
+    script = os.path.join(BASE_DIR, "interlude.py")
+    try:
+        with open(SETTINGS_FILE) as f:
+            before = f.read()
+    except FileNotFoundError:
+        before = ""
+    except Exception:
+        before = ""
+    try:
+        data = json.loads(before) if before.strip() else {}
+        if not isinstance(data, dict):
+            data = {}
+        before_norm = json.dumps(data, indent=2) + "\n" if before.strip() else ""
+    except Exception:
+        data = {}
+        before_norm = None  # unparseable -> treat as changed
+
+    hooks = data.get("hooks")
+    if not isinstance(hooks, dict):
+        hooks = {}
+    data["hooks"] = hooks
+    markers = ("interlude.py", "companion.py", BASE_DIR)
+
+    def is_ours(entry):
+        for h in entry.get("hooks", []):
+            if any(m and m in h.get("command", "") for m in markers):
+                return True
+        return False
+
+    def strip_ours(event):
+        groups = hooks.get(event)
+        return [g for g in groups if not is_ours(g)] if isinstance(groups, list) else []
+
+    def cmd(sub):
+        return {"type": "command", "command": f'"{python}" "{script}" {sub}'}
+
+    plan = {
+        "UserPromptSubmit": ("on-prompt", None),
+        "PostToolUse": ("on-tool", "*"),
+        "Stop": ("on-stop", None),
+        "Notification": ("on-need", None),
+    }
+    for event, (sub, matcher) in plan.items():
+        kept = strip_ours(event)
+        group = {"hooks": [cmd(sub)]}
+        if matcher is not None:
+            group["matcher"] = matcher
+        kept.append(group)
+        hooks[event] = kept
+
+    after = json.dumps(data, indent=2) + "\n"
+    changed = (before_norm != after)
+    if changed:
+        try:
+            os.makedirs(CLAUDE_DIR, exist_ok=True)
+            if before:
+                try:
+                    shutil.copyfile(SETTINGS_FILE, SETTINGS_FILE + ".bak." + str(int(time.time())))
+                except OSError:
+                    pass
+            tmp = SETTINGS_FILE + ".tmp"
+            with open(tmp, "w") as f:
+                f.write(after)
+            os.replace(tmp, SETTINGS_FILE)
+        except OSError:
+            pass
+    return changed
+
+
+def fetch_remote_version():
+    url = f"https://raw.githubusercontent.com/{UPDATE_REPO}/{UPDATE_REF}/app/VERSION"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "interlude-updater"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            if getattr(r, "status", 200) != 200:
+                return None
+            return r.read().decode("utf-8").strip()
+    except Exception:
+        return None
+
+
+def _safe_extract(tar, dest):
+    dest_real = os.path.realpath(dest)
+    for m in tar.getmembers():
+        target = os.path.realpath(os.path.join(dest, m.name))
+        if target != dest_real and not target.startswith(dest_real + os.sep):
+            raise RuntimeError("unsafe path in archive: " + m.name)
+    tar.extractall(dest)
+
+
+def _find_app_dir(root):
+    for base, dirs, files in os.walk(root):
+        if os.path.basename(base) == "app" and "interlude.py" in files:
+            return base
+    return None
+
+
+def download_and_stage():
+    """Download + extract the repo tarball; return a verified app/ dir or None."""
+    url = f"https://github.com/{UPDATE_REPO}/archive/{UPDATE_REF}.tar.gz"
+    tmp = tempfile.mkdtemp(prefix="interlude-upd-")
+    tgz = os.path.join(tmp, "src.tar.gz")
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "interlude-updater"})
+        with urllib.request.urlopen(req, timeout=60) as r, open(tgz, "wb") as f:
+            shutil.copyfileobj(r, f)
+        with tarfile.open(tgz, "r:gz") as tar:
+            _safe_extract(tar, tmp)
+        app_src = _find_app_dir(tmp)
+        if not app_src:
+            return None
+        for required in ("interlude.py", "server.py", "app.html"):
+            if not os.path.isfile(os.path.join(app_src, required)):
+                return None  # doesn't look like Interlude — refuse to apply
+        return app_src
+    except Exception:
+        return None
+
+
+def apply_staged(app_src):
+    """Copy staged app/* over the install, per-file atomically. Never touches
+    files/dirs that hold local progress (state.json, .run/) — so a stray copy
+    in the download can't clobber the user's saves."""
+    keep = {"state.json", ".run"}
+    try:
+        for base, dirs, files in os.walk(app_src):
+            rel = os.path.relpath(base, app_src)
+            # don't descend into (or recreate) preserved local-only dirs
+            dirs[:] = [d for d in dirs if d not in keep]
+            dest_dir = BASE_DIR if rel == "." else os.path.join(BASE_DIR, rel)
+            os.makedirs(dest_dir, exist_ok=True)
+            for fn in files:
+                if rel == "." and fn in keep:
+                    continue
+                dst = os.path.join(dest_dir, fn)
+                tmp = dst + ".upd.tmp"
+                shutil.copy2(os.path.join(base, fn), tmp)
+                os.replace(tmp, dst)
+        try:
+            os.chmod(os.path.join(BASE_DIR, "interlude.py"), 0o755)
+        except OSError:
+            pass
+        return True
+    except Exception:
+        return False
+
+
+def run_apply_hooks():
+    """Run the freshly-installed interlude.py to re-register hooks; returns
+    True if the settings.json wiring changed (Claude restart needed)."""
+    script = os.path.join(BASE_DIR, "interlude.py")
+    try:
+        out = subprocess.run([sys.executable, script, "_apply-hooks"],
+                             capture_output=True, text=True, timeout=15)
+        return out.stdout.strip() == "changed"
+    except Exception:
+        return False
+
+
+def restart_server():
+    """Relaunch the server so new server.py/app.html take effect (same port)."""
+    port = read_port()
+    if not ping(port):
+        return  # not running; the next window open will launch the new server
+    try:
+        urllib.request.urlopen(f"http://127.0.0.1:{port}/api/quit", data=b"{}", timeout=2)
+    except Exception:
+        pass
+    sp = pid_from(SERVER_PID)
+    if alive(sp):
+        try:
+            os.kill(sp, signal.SIGTERM)
+        except Exception:
+            pass
+    for _ in range(20):  # wait up to ~2s for it to exit
+        if not alive(sp):
+            break
+        time.sleep(0.1)
+    ensure_server()
+
+
+def _update_pipeline(force):
+    cur = local_version()
+    now = int(time.time() * 1000)
+    remote = fetch_remote_version()
+    if remote is None:
+        # couldn't reach the update server — keep any pending phase, flag it
+        write_update(read_update().get("phase", "idle"), reachable=False, checkedAt=now)
+        return
+    if not force and not ver_gt(remote, cur):
+        write_update("idle", version=remote, prev=cur, reachable=True, checkedAt=now)
+        return
+    write_update("downloading", version=remote, prev=cur, reachable=True, checkedAt=now)
+    staged = download_and_stage()
+    if not staged:
+        write_update("error", version=remote, prev=cur, note="download failed", checkedAt=now)
+        return
+    write_update("downloaded", version=remote, prev=cur, checkedAt=now)
+    write_update("applying", version=remote, prev=cur, checkedAt=now)
+    if not apply_staged(staged):
+        write_update("error", version=remote, prev=cur, note="apply failed", checkedAt=now)
+        return
+    hooks_changed = run_apply_hooks()
+    restart_server()
+    new_ver = local_version()
+    write_update("restart_needed" if hooks_changed else "updated",
+                 version=new_ver, prev=cur, checkedAt=now)
+
+
+def do_update_run(force=False):
+    ensure_run()
+    try:
+        lock = open(UPDATE_LOCK, "w")
+    except OSError:
+        return
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        lock.close()
+        return  # another updater is already running
+    try:
+        _update_pipeline(force)
+    except Exception:
+        pass
+    finally:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+        except OSError:
+            pass
+        lock.close()
+
+
+def maybe_check_update():
+    """Called from on_prompt: throttled, opt-out-aware, spawns a detached check."""
+    try:
+        if update_disabled():
+            return
+        now = int(time.time() * 1000)
+        up = read_update()
+        if now - int(up.get("checkedAt", 0)) < UPDATE_INTERVAL * 1000:
+            return
+        write_update(up.get("phase", "idle"), checkedAt=now)  # claim this check window
+        spawn_detached([sys.executable, __file__, "_update-run"])
+    except Exception:
+        pass
+
+
 # ---------- hook entry points ----------
 def on_prompt():
     if is_disabled():
@@ -297,6 +622,7 @@ def on_prompt():
     clear_keep()
     write_status(True, gen)
     spawn_detached([sys.executable, __file__, "_watch", str(gen)])
+    maybe_check_update()  # throttled, opt-out-aware, detached — never blocks the hook
 
 
 def on_tool():
@@ -344,8 +670,10 @@ def admin_on():
 def admin_status():
     port = read_port()
     print(json.dumps({
-        "version": __version__,
+        "version": local_version(),
         "disabled": is_disabled(),
+        "auto_update": not update_disabled(),
+        "update": read_update(),
         "status": read_status(),
         "port": port,
         "server_up": ping(port),
@@ -355,7 +683,52 @@ def admin_status():
 
 
 def admin_version():
-    print(f"interlude {__version__}")
+    print(f"interlude {local_version()}")
+
+
+def admin_update():
+    """`interlude update [off|on|--force]` — manage / force auto-update."""
+    args = sys.argv[2:]
+    if args and args[0] == "off":
+        ensure_run()
+        open(NO_UPDATE, "w").close()
+        print("Auto-update disabled. Re-enable with: interlude update on")
+        return
+    if args and args[0] == "on":
+        try:
+            os.remove(NO_UPDATE)
+        except OSError:
+            pass
+        print("Auto-update enabled.")
+        return
+    force = "--force" in args
+    before = local_version()
+    print(f"Checking {UPDATE_REPO}@{UPDATE_REF} (current v{before})…")
+    do_update_run(force=force)
+    up = read_update()
+    phase = up.get("phase", "idle")
+    after = local_version()
+    if after != before:
+        # code was actually applied during THIS run
+        print(f"Updated to v{after}." +
+              (" Restart Claude Code to finish." if phase == "restart_needed" else ""))
+    elif phase == "error":
+        print(f"Update failed: {up.get('note', 'unknown error')}")
+    elif phase == "restart_needed":
+        # a previously-applied update is still waiting to be acknowledged
+        print(f"Update to v{up.get('version')} already applied — restart Claude Code to finish.")
+    elif up.get("reachable") is False:
+        print("Couldn't reach the update server; will retry later.")
+    else:
+        print(f"Already up to date (v{after}).")
+
+
+def apply_hooks_cmd():
+    print("changed" if register_hooks() else "unchanged")
+
+
+def update_run_cmd():
+    do_update_run(False)
 
 
 def admin_stop_server():
@@ -386,6 +759,9 @@ COMMANDS = {
     "status": admin_status,
     "version": admin_version,
     "stop-server": admin_stop_server,
+    "update": admin_update,
+    "_apply-hooks": apply_hooks_cmd,
+    "_update-run": update_run_cmd,
 }
 
 

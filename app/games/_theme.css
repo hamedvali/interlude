@@ -1,0 +1,104 @@
+/*
+ * Interlude shared theme tokens for vendored games.
+ * The bridge sets .il-light / .il-dark on <html>; games link this file and can
+ * use these variables to blend with the app. Colours mirror app.html.
+ */
+:root, .il-light {
+  --il-bg:        #EAE6F8;
+  --il-surface:   #ffffff;
+  --il-surface-2: #F4F2FB;
+  --il-violet:    #7C4DEB;
+  --il-violet-ink:#5B2FD0;
+  --il-violet-soft:#EEE8FD;
+  --il-ink-1:     #241F3A;
+  --il-ink-2:     #6E6A85;
+  --il-ink-3:     #A6A2BC;
+  --il-line:      #ECEAF5;
+  --il-good:      #3FB27F;
+  --il-danger:    #E8654F;
+  --il-yellow:    #E5A81C;
+  --il-coral:     #F0714B;
+  --il-cyan:      #2FB2C6;
+  --il-shadow:    0 10px 30px rgba(84,60,168,.14);
+  --il-r:         18px;
+  --il-font: ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+.il-dark {
+  --il-bg:        #120E20;
+  --il-surface:   #1C1730;
+  --il-surface-2: #26203C;
+  --il-violet:    #8A62EE;
+  --il-violet-ink:#B79CF6;
+  --il-violet-soft:rgba(124,77,235,.22);
+  --il-ink-1:     rgba(255,255,255,.92);
+  --il-ink-2:     rgba(255,255,255,.60);
+  --il-ink-3:     rgba(255,255,255,.40);
+  --il-line:      rgba(255,255,255,.10);
+  --il-shadow:    0 10px 30px rgba(0,0,0,.45);
+}
+
+/* Base: every game sits on the app background with the app font. Individual
+   games layer their own board styles on top. */
+html.il-light, html.il-dark {
+  background: var(--il-bg);
+}
+html.il-light body, html.il-dark body {
+  background: var(--il-bg);
+  color: var(--il-ink-1);
+  font-family: var(--il-font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* A reusable centred stage most games mount into. */
+.il-stage {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 18px;
+  box-sizing: border-box;
+}
+.il-title {
+  font-family: var(--il-font);
+  font-weight: 750;
+  letter-spacing: -.02em;
+  color: var(--il-ink-1);
+}
+.il-hud {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: var(--il-ink-2);
+  font-size: 14px;
+}
+.il-pill {
+  background: var(--il-surface-2);
+  border: 1px solid var(--il-line);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-weight: 650;
+  color: var(--il-ink-1);
+}
+.il-btn {
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 650;
+  font-size: 14px;
+  color: #fff;
+  background: linear-gradient(135deg, #8A5EF2, #6E39E6);
+  box-shadow: 0 8px 18px rgba(108,60,224,.28);
+  cursor: pointer;
+  transition: filter .12s, transform .05s;
+}
+.il-btn:hover { filter: brightness(1.05); }
+.il-btn:active { transform: translateY(.5px); }
+.il-btn.ghost {
+  background: var(--il-surface-2);
+  color: var(--il-ink-1);
+  border-color: var(--il-line);
+  box-shadow: none;
+}
