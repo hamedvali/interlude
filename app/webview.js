@@ -9,12 +9,14 @@
 //   * The process owns exactly one window, so interlude.py can close it cleanly
 //     by killing this PID.
 //
-// It exits (closing the window) when:
-//   * this process is killed (interlude.py do_close), or
-//   * the user closes the window (red X), or
-//   * the web app runs its 3-2-1 countdown and calls window.close(), which the
-//     injected shim turns into a title sentinel we poll for (WKWebView ignores
-//     window.close() on the top-level frame otherwise).
+// It runs the real AppKit event loop ([NSApp run]) so the web view is fully
+// interactive and its content process stays healthy. A repeating NSTimer polls
+// for the two exit conditions and terminates the app (closing the window):
+//   * the user closes the window (red X)  ->  win.isVisible becomes false
+//   * the app's 3-2-1 countdown calls window.close()  ->  the injected shim
+//     sets a title sentinel we detect (WKWebView ignores window.close() on the
+//     top-level frame otherwise)
+// interlude.py killing this PID is the backstop for both.
 
 function run(argv) {
   ObjC.import('Cocoa');
@@ -37,7 +39,7 @@ function run(argv) {
   win.setTitle('Interlude');
   win.setReleasedWhenClosed(false); // so win.isVisible stays safe to read after close
 
-  // Turn the app's window.close() into a title we can detect from here.
+  // Turn the app's window.close() into a title we can detect from the timer.
   var shim = "(function(){var _c=window.close;window.close=function(){" +
              "try{document.title='" + CLOSE + "';}catch(e){}" +
              "try{_c.call(window);}catch(e){}};})();";
@@ -49,17 +51,25 @@ function run(argv) {
   cfg.userContentController = ucc;
 
   var wv = $.WKWebView.alloc.initWithFrameConfiguration(rect, cfg);
+  wv.setAutoresizingMask($.NSViewWidthSizable | $.NSViewHeightSizable);
   win.setContentView(wv);
   wv.loadRequest($.NSURLRequest.requestWithURL($.NSURL.URLWithString(url)));
 
   win.makeKeyAndOrderFront(null);
   app.activateIgnoringOtherApps(true);
 
-  var rl = $.NSRunLoop.currentRunLoop;
-  while (true) {
-    rl.runUntilDate($.NSDate.dateWithTimeIntervalSinceNow(0.15));
-    if (!win.isVisible) break;                       // user closed the window
-    var t = wv.title;
-    if (t && ObjC.unwrap(t) === CLOSE) break;        // app's countdown self-close
-  }
+  // Poll for exit conditions from inside the AppKit run loop.
+  $.NSTimer.scheduledTimerWithTimeIntervalRepeatsBlock(0.2, true, function (timer) {
+    var done = !win.isVisible;                              // user closed the window
+    if (!done) {
+      var t = wv.title;
+      if (t && ObjC.unwrap(t) === CLOSE) done = true;       // countdown self-close
+    }
+    if (done) {
+      timer.invalidate;
+      app.terminate(null);
+    }
+  });
+
+  app.run;   // real event loop: interactive clicks + healthy WebKit content process
 }
