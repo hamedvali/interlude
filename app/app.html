@@ -194,6 +194,15 @@
   .sec-title { font-size:19px; font-weight:750; letter-spacing:-.015em; margin:2px 0 15px; }
   .muted { color:var(--ink-3); font-size:12.5px; }
 
+  /* ---------- Learn sub-tabs ---------- */
+  .ltabs { display:flex; gap:6px; background:var(--surface-2); border:1px solid var(--line);
+    border-radius:14px; padding:5px; margin:2px 0 18px; }
+  .ltab { flex:1; border:0; background:transparent; color:var(--ink-2); font:inherit;
+    font-size:13.5px; font-weight:650; padding:9px 10px; border-radius:10px; cursor:pointer;
+    transition:.14s; white-space:nowrap; }
+  .ltab:hover { color:var(--ink-1); }
+  .ltab.on { background:var(--frame); color:var(--violet); box-shadow:var(--shadow-sm); }
+
   /* ---------- Buttons ---------- */
   .btn { border:1px solid var(--line); background:var(--surface-2); color:var(--ink-1);
     border-radius:14px; padding:13px 16px; font:inherit; font-weight:600; font-size:14px;
@@ -551,10 +560,8 @@
       <div class="rail-nav">
         <button class="rico active" data-view="learn" title="Learn">
           <svg class="icon" viewBox="0 0 24 24"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c0 1.1 2.7 3 6 3s6-1.9 6-3v-5"/><path d="M22 10v6"/></svg></button>
-        <button class="rico" data-view="play" title="Play">
+        <button class="rico" data-view="game" title="Arcade">
           <svg class="icon" viewBox="0 0 24 24"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg></button>
-        <button class="rico" data-view="progress" title="Progress">
-          <svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></button>
         <button class="rico" data-view="social" title="Social">
           <svg class="icon" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4"/><path d="M15.4 6.5l-6.8 4"/></svg></button>
       </div>
@@ -588,8 +595,7 @@
       </header>
       <div class="scroller">
         <section id="learn" class="view active"></section>
-        <section id="play" class="view"></section>
-        <section id="progress" class="view"></section>
+        <section id="game" class="view"></section>
         <section id="social" class="view"></section>
         <section id="settings" class="view"></section>
       </div>
@@ -702,12 +708,33 @@ function statCard(cls,icon,val,label){
   return `<div class="stat-card ${cls}"><div class="sc-ico">${icon}</div><div><b>${val}</b><span>${label}</span></div></div>`;
 }
 
-/* ---------------- LEARN ---------------- */
+/* ---------------- LEARN (hub: Practice · Games · Progress) ---------------- */
 let cur=null, flipped=false;
+const LEARN_TABS = [
+  { v:"practice", t:"Practice" },
+  { v:"games",    t:"Games" },
+  { v:"progress", t:"Progress" },
+];
+let learnTab = "practice";
 function renderLearn(){
-  const el=$("#learn"); cur=pickWeighted(); flipped=false;
-  const s=computeStats(); const box=(STATE.words[cur.word]?.box)||1;
+  const el=$("#learn");
   el.innerHTML=`
+    <div class="ltabs" id="ltabs">${LEARN_TABS.map(o=>
+      `<button type="button" class="ltab ${o.v===learnTab?'on':''}" data-lt="${o.v}">${o.t}</button>`).join("")}</div>
+    <div id="learnBody"></div>`;
+  el.querySelectorAll("[data-lt]").forEach(b=>b.onclick=()=>{
+    if(b.dataset.lt===learnTab) return;
+    learnTab=b.dataset.lt; renderLearn();
+  });
+  const body=$("#learnBody",el);
+  if(learnTab==="practice") renderPractice(body);
+  else if(learnTab==="games") renderWordGames(body);
+  else renderAnalytics(body);
+}
+function renderPractice(host){
+  cur=pickWeighted(); flipped=false;
+  const s=computeStats(); const box=(STATE.words[cur.word]?.box)||1;
+  host.innerHTML=`
     <div class="grid-learn">
       <div class="col-main">
         <div class="hero">
@@ -739,24 +766,20 @@ function renderLearn(){
           ${statCard("coral",I.rotate,s.reviews,"Reviews")}
           ${statCard("cyan",I.target,s.acc+"%","Accuracy")}
         </div>
-        <div class="card">
-          <div class="chart-head"><span class="t">Mastery</span><span class="muted">Leitner</span></div>
-          ${boxBars(s.boxCounts)}
-        </div>
       </aside>
     </div>`;
-  const face=()=>{ $("#flash").innerHTML = flipped
+  const face=()=>{ $("#flash",host).innerHTML = flipped
     ? `<span class="tag">${cur.pos}</span><div class="def">${cur.def}</div><div class="ex">“${cur.ex}”</div>`
     : `<span class="eyebrow">tap to reveal</span><div class="word">${cur.word}</div><div class="pos">${cur.pos}</div>`; };
   face();
   const flip=()=>{ flipped=!flipped; face(); };
-  $("#flash").onclick=flip;
-  $("#got").onclick =()=>{ review(cur.word,true);  renderLearn(); };
-  $("#miss").onclick=()=>{ review(cur.word,false); renderLearn(); };
+  $("#flash",host).onclick=flip;
+  $("#got",host).onclick =()=>{ review(cur.word,true);  renderPractice(host); };
+  $("#miss",host).onclick=()=>{ review(cur.word,false); renderPractice(host); };
   keyHandler=(e)=>{
     if(e.key===" "||e.key==="Enter"){ e.preventDefault(); flip(); }
-    else if(e.key==="1"){ review(cur.word,false); renderLearn(); }
-    else if(e.key==="2"){ review(cur.word,true);  renderLearn(); }
+    else if(e.key==="1"){ review(cur.word,false); renderPractice(host); }
+    else if(e.key==="2"){ review(cur.word,true);  renderPractice(host); }
   };
 }
 function boxBars(boxCounts){
@@ -793,10 +816,12 @@ const ARCADE_GAMES = [
   // { id:"tictactoe",  name:"Tic-Tac-Toe", color:"coral",  ico:I.xo,      kind:"arcade" },
 ];
 const ALL_GAMES = ()=> WORD_GAMES.concat(ARCADE_GAMES);
-let activeGame = WORD_GAMES[0].id, arcadeFrame=null;
+let activeWordGame = WORD_GAMES[0].id;
+let activeArcade   = ARCADE_GAMES[0].id;
+let arcadeFrame=null;
 
-function gameCard(g){
-  const on=g.id===activeGame;
+function gameCard(g, activeId){
+  const on=g.id===activeId;
   let sub;
   if(g.kind==="arcade"){
     const rec=(STATE.arcade||{})[g.id];
@@ -812,19 +837,28 @@ function gameCard(g){
       <div class="gc-sub">${sub}</div>
     </button>`;
 }
-function renderPlay(){
-  const el=$("#play"); arcadeFrame=null;
-  el.innerHTML=`
-    <h2 class="sec-title">Word games</h2>
-    <div class="game-grid">${WORD_GAMES.map(gameCard).join("")}</div>
-    <h2 class="sec-title sub">Arcade</h2>
-    <div class="game-grid">${ARCADE_GAMES.map(gameCard).join("")}</div>
-    <div class="card" id="game"></div>`;
-  el.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{ activeGame=b.dataset.g; renderPlay(); });
+// Word games — lives inside Learn ▸ Games.
+function renderWordGames(host){
+  arcadeFrame=null;
+  host.innerHTML=`
+    <div class="game-grid">${WORD_GAMES.map(g=>gameCard(g,activeWordGame)).join("")}</div>
+    <div class="card" id="wgame"></div>`;
+  host.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{ activeWordGame=b.dataset.g; renderWordGames(host); });
   keyHandler=null;
-  const g=ALL_GAMES().find(x=>x.id===activeGame);
-  if(g.kind==="arcade") mountArcade($("#game"),g);
-  else { bumpGame(activeGame,"played"); g.mount($("#game")); }
+  const g=WORD_GAMES.find(x=>x.id===activeWordGame);
+  bumpGame(activeWordGame,"played"); g.mount($("#wgame",host));
+}
+// Arcade — its own top-level nav item.
+function renderGame(){
+  const el=$("#game"); arcadeFrame=null;
+  el.innerHTML=`
+    <h2 class="sec-title">Arcade</h2>
+    <div class="game-grid">${ARCADE_GAMES.map(g=>gameCard(g,activeArcade)).join("")}</div>
+    <div class="card" id="arcadeHost"></div>`;
+  el.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{ activeArcade=b.dataset.g; renderGame(); });
+  keyHandler=null;
+  const g=ARCADE_GAMES.find(x=>x.id===activeArcade);
+  mountArcade($("#arcadeHost",el),g);
 }
 function mountArcade(host,g){
   const theme=isDark()?"dark":"light";
@@ -981,10 +1015,10 @@ function areaChart(days){
     <path d="${area}" fill="url(#af)"/><path d="${line}" class="aline"/>${dots}${labels}
   </svg>`;
 }
-function renderProgress(){
-  const el=$("#progress"); const s=computeStats();
+function renderAnalytics(host){
+  const s=computeStats();
   const weekTotal=s.days.reduce((a,d)=>a+d.n,0);
-  el.innerHTML=`
+  host.innerHTML=`
     <div class="prog-wrap">
       <div class="stat-grid four">
         ${statCard("violet",I.flame,s.streak,"Day streak")}
@@ -1011,7 +1045,7 @@ function renderProgress(){
       </div>
     </div>`;
   const tip=$("#tooltip");
-  el.querySelectorAll("[data-tip]").forEach(b=>{
+  host.querySelectorAll("[data-tip]").forEach(b=>{
     b.onmousemove=e=>{ tip.textContent=b.dataset.tip; tip.style.opacity=1; tip.style.left=(e.clientX+12)+"px"; tip.style.top=(e.clientY-34)+"px"; };
     b.onmouseleave=()=>{ tip.style.opacity=0; };
   });
@@ -1105,7 +1139,7 @@ function renderSettings(){
           <div class="set-label">Open to</div>
           <div class="set-desc">Which tab Interlude shows first.</div>
         </div>
-        <div class="set-ctl">${seg("segView",[{v:"learn",t:"Learn"},{v:"play",t:"Play"},{v:"progress",t:"Progress"}],s.defaultView)}</div>
+        <div class="set-ctl">${seg("segView",[{v:"learn",t:"Learn"},{v:"game",t:"Arcade"},{v:"social",t:"Social"}],s.defaultView)}</div>
       </div>
       <div class="set-row">
         <div class="set-info">
@@ -1243,9 +1277,9 @@ window.__ilSocial = function(){
 };
 
 /* ---------------- nav + status ---------------- */
-const RENDER={ learn:renderLearn, play:renderPlay, progress:renderProgress, social:renderSocial, settings:renderSettings };
+const RENDER={ learn:renderLearn, game:renderGame, social:renderSocial, settings:renderSettings };
 function switchView(v){
-  if(v!=="play") postArcade({type:"interlude:save"});   // save arcade progress when leaving Play
+  if(v!=="game") postArcade({type:"interlude:save"});   // save arcade progress when leaving Arcade
   document.querySelectorAll(".rico").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
   document.querySelectorAll(".view").forEach(sec=>sec.classList.toggle("active",sec.id===v));
   RENDER[v]();
@@ -1438,7 +1472,9 @@ async function init(){
   STATE.words=STATE.words||{}; STATE.games=STATE.games||{}; STATE.arcade=STATE.arcade||{}; STATE.history=STATE.history||[];
   SETTINGS=await api.settings();
   applyThemeIcon(); updateChrome(); wireSnooze();
-  switchView(["learn","play","progress"].includes(SETTINGS.defaultView)?SETTINGS.defaultView:"learn");
+  const legacy={ play:"game", progress:"learn" };
+  const dv=legacy[SETTINGS.defaultView]||SETTINGS.defaultView;
+  switchView(["learn","game","social"].includes(dv)?dv:"learn");
   poll(); setInterval(poll,800);
 }
 init();
