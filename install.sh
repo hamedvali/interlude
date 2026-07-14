@@ -146,11 +146,12 @@ def cmd(sub):
 
 # event -> (subcommand, matcher-or-None)
 plan = {
-    "UserPromptSubmit": ("on-prompt",  None),
-    "PreToolUse":       ("on-pretool", "*"),
-    "PostToolUse":      ("on-tool",    "*"),
-    "Stop":             ("on-stop",    None),
-    "Notification":     ("on-need",    None),
+    "UserPromptSubmit":   ("on-prompt",   None),
+    "PreToolUse":         ("on-pretool",  "*"),
+    "PostToolUse":        ("on-tool",     "*"),
+    "PostToolUseFailure": ("on-toolfail", "*"),
+    "Stop":               ("on-stop",     None),
+    "Notification":       ("on-need",     None),
 }
 
 for event, (sub, matcher) in plan.items():
@@ -166,7 +167,7 @@ with open(tmp, "w") as f:
     json.dump(data, f, indent=2)
     f.write("\n")
 os.replace(tmp, settings_path)
-print("  hooks registered: UserPromptSubmit, PreToolUse, PostToolUse, Stop, Notification")
+print("  hooks registered: UserPromptSubmit, PreToolUse, PostToolUse, PostToolUseFailure, Stop, Notification")
 PYEOF
 info "Claude Code hooks registered in $SETTINGS"
 

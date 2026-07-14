@@ -108,7 +108,16 @@
   @keyframes closePop { from{opacity:0;transform:translateY(10px) scale(.96);} to{opacity:1;transform:none;} }
   .close-ring { width:56px; height:56px; margin:2px auto 14px; border-radius:50%;
     background:var(--good-soft); color:var(--good); display:flex; align-items:center; justify-content:center; }
-  .close-ring svg { width:30px; height:30px; }
+  .close-ring svg { width:30px; height:30px; fill:none; stroke:currentColor; stroke-width:2.2;
+    stroke-linecap:round; stroke-linejoin:round; }
+  /* per-state accent for the countdown card */
+  .close-card.done .close-ring        { background:var(--violet-soft); color:var(--violet); }
+  .close-card.needs_input .close-ring { background:var(--yellow-soft); color:var(--warn); }
+  .close-card.permission .close-ring,
+  .close-card.error .close-ring       { background:var(--danger-soft); color:var(--danger); }
+  .close-card.needs_input .close-sub b { color:var(--warn); }
+  .close-card.permission .close-sub b,
+  .close-card.error .close-sub b       { color:var(--danger); }
   .close-title { font-size:17px; font-weight:700; color:var(--ink); letter-spacing:-.01em; }
   .close-sub { margin-top:5px; font-size:14px; color:var(--ink-2); }
   .close-sub b { display:inline-block; min-width:1ch; color:var(--violet); font-variant-numeric:tabular-nums;
@@ -417,13 +426,11 @@
 </head>
 <body>
   <div id="closeModal" class="close-modal" hidden>
-    <div class="close-card" role="alertdialog" aria-live="assertive" aria-label="Claude is ready">
-      <div class="close-ring">
-        <svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-      <div class="close-title">Claude is ready</div>
-      <div class="close-sub">Closing in <b id="closeCount">3</b></div>
-      <button id="closeKeep" class="close-keep" type="button">Keep open</button>
+    <div class="close-card" id="closeCard" role="alertdialog" aria-live="assertive">
+      <div class="close-ring" id="closeRing"></div>
+      <div class="close-title" id="closeTitle">Claude's done</div>
+      <div class="close-sub"><span id="closeLead">Closing in</span> <b id="closeCount">3</b></div>
+      <button id="closeNow" class="close-keep" type="button">Close</button>
       <div class="close-hint">or press <kbd>Esc</kbd> to keep it open</div>
     </div>
   </div>
@@ -981,8 +988,8 @@ function renderSettings(){
       </div>
       <div class="set-row">
         <div class="set-info">
-          <div class="set-label">Chime when Claude's done</div>
-          <div class="set-desc">A soft two-note sound the moment work finishes.</div>
+          <div class="set-label">Sound cues</div>
+          <div class="set-desc">A distinct sound for each state — done, waiting for you, needs permission, and errors.</div>
         </div>
         <div class="set-ctl">${sw("swSound",s.sound)}</div>
       </div>
@@ -1134,28 +1141,69 @@ themeBtn.onclick=()=>{ const dark=!isDark(); document.documentElement.setAttribu
 
 let prevBusy=null, latestBusy=null, closing=false, kept=false, closeTimer=null, curGen=0;
 const COUNTDOWN=3;                 // seconds shown before the window closes itself
+const HIDE_SENTINEL="__INTERLUDE_HIDE__";   // webview.js watches document.title for this
+
+// Every finished state uses the same centered countdown card; only the icon,
+// title, accent and end-action differ. `hide:true` steps the window aside
+// (so you can approve a permission in the terminal) instead of closing it.
+const MODAL={
+  done:        { ic:`<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>`,
+                 title:"Claude's done",            lead:"Closing in" },
+  needs_input: { ic:`<svg viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.7 8.7 0 0 1-3.9-.9L3 21l1.9-5.6A8.4 8.4 0 0 1 4 11.5 8.4 8.4 0 0 1 12.5 3 8.4 8.4 0 0 1 21 11.5Z"/></svg>`,
+                 title:"Claude's waiting for you", lead:"Closing in" },
+  permission:  { ic:`<svg viewBox="0 0 24 24"><rect x="4" y="10.5" width="16" height="10" rx="2.2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>`,
+                 title:"Claude needs permission",  lead:"Stepping aside in", hide:true },
+  error:       { ic:`<svg viewBox="0 0 24 24"><path d="M12 4 2.5 20h19L12 4Z"/><path d="M12 10v4M12 17h.01"/></svg>`,
+                 title:"Something went wrong",     lead:"Closing in" },
+};
 
 function cancelClose(){ if(closeTimer){ clearInterval(closeTimer); closeTimer=null; } closing=false; $("#closeModal").hidden=true; }
 
-function keepOpen(){                 // user chose to stay — cancel countdown, tell the server
+function keepOpen(){                 // Esc: cancel the countdown, keep the window up
   cancelClose(); kept=true; api.keep(curGen);
 }
 
-function beginCountdown(){
+function closeNow(){                  // the big button: close immediately (even permission)
+  cancelClose();
+  postArcade({type:"interlude:save"});
+  try{ window.close(); }catch(e){}
+}
+
+function configureModal(state){
+  const m=MODAL[state]||MODAL.done;
+  const card=$("#closeCard");
+  card.className="close-card "+(MODAL[state]?state:"done");
+  card.setAttribute("aria-label", m.title);
+  $("#closeRing").innerHTML=m.ic;
+  $("#closeTitle").textContent=m.title;
+  $("#closeLead").textContent=m.lead;
+  return m;
+}
+
+function beginCountdown(state){
   if(closing) return;
   postArcade({type:"interlude:save"});   // snapshot any in-play arcade game before we may close
   closing=true; kept=false;
+  const m=configureModal(state);
   const modal=$("#closeModal"), cnt=$("#closeCount");
   let n=COUNTDOWN; cnt.textContent=n; modal.hidden=false;
   closeTimer=setInterval(()=>{
     if(latestBusy){ cancelClose(); return; }   // Claude got busy again — abort close
     n-=1;
-    if(n<=0){ clearInterval(closeTimer); closeTimer=null; try{window.close();}catch{} return; }
+    if(n<=0){
+      clearInterval(closeTimer); closeTimer=null;
+      // Permission steps aside (webview.js hides the app so you can approve in
+      // the terminal); every other state closes. `closing` stays true so a
+      // later resume-poll cleans up the modal.
+      if(m.hide){ try{ document.title=HIDE_SENTINEL; }catch(e){} }
+      else { try{ window.close(); }catch(e){} }
+      return;
+    }
     cnt.textContent=n;
   },1000);
 }
 
-$("#closeKeep").onclick=keepOpen;
+$("#closeNow").onclick=closeNow;
 window.addEventListener("keydown",e=>{ if(e.key==="Escape" && closing){ e.preventDefault(); keepOpen(); } });
 
 /* ---------------- auto-update toast ---------------- */
@@ -1218,7 +1266,10 @@ async function poll(){
     cancelClose(); kept=false;                 // fresh work: reset so a later idle can count down again
   } else {
     st.className="status-pill ready"; t.textContent="Claude is ready";
-    if(prevBusy===true && !kept){ if(SETTINGS.sound) chime(); beginCountdown(); }
+    // Every finished state shows the countdown card, themed by state. Permission
+    // steps aside instead of closing (handled in beginCountdown). The per-state
+    // sound comes from the hook (afplay), so it fires even as the window closes.
+    if(prevBusy===true && !kept){ beginCountdown((s.attention&&s.attention.state)||"done"); }
   }
   prevBusy=s.busy;
   if(s.update!==undefined) renderUpdate(s.update, s.version);   // skip on transient fetch failures

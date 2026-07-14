@@ -17,6 +17,11 @@
 //     sets a title sentinel we detect (WKWebView ignores window.close() on the
 //     top-level frame otherwise)
 // interlude.py killing this PID is the backstop for both.
+//
+// One state doesn't exit: on a permission prompt the app sets a HIDE title
+// sentinel instead. We app.hide() (yielding focus to the terminal so the user
+// can approve) but keep the process alive; a FRONT_FILE bump from interlude.py
+// un-hides and re-fronts the same window when Claude resumes.
 
 function run(argv) {
   ObjC.import('Cocoa');
@@ -27,6 +32,8 @@ function run(argv) {
   var H = parseInt(argv[2], 10) || 840;
   var FRONT_FILE = argv[3] || '';   // interlude.py bumps this to re-front us
   var CLOSE = '__INTERLUDE_CLOSE__';
+  var HIDE = '__INTERLUDE_HIDE__';  // permission: step aside (app.hide) instead of closing
+  var hiddenByUs = false;           // true while we've backgrounded ourselves (not a user close)
 
   // Read the current front-counter value (empty string if the file is absent
   // or unreadable). interlude.py increments it when a new prompt arrives and a
@@ -147,21 +154,30 @@ function run(argv) {
 
   // Poll for exit conditions + re-front requests from inside the run loop.
   $.NSTimer.scheduledTimerWithTimeIntervalRepeatsBlock(0.2, true, function (timer) {
-    var done = !win.isVisible;                              // user closed the window
-    if (!done) {
-      var t = wv.title;
-      if (t && ObjC.unwrap(t) === CLOSE) done = true;       // countdown self-close
-    }
+    // A vanished window only means "user closed" when we didn't hide ourselves.
+    var done = !hiddenByUs && !win.isVisible;
+    var t = wv.title;
+    var tv = (t ? ObjC.unwrap(t) : '') || '';
+    if (!done && tv === CLOSE) done = true;                 // countdown self-close
     if (done) {
       timer.invalidate;
       app.terminate(null);
       return;
     }
-    var cur = readFront();                                  // new prompt while open?
+    if (tv === HIDE && !hiddenByUs) {                       // permission: step aside
+      hiddenByUs = true;
+      // clear the sentinel so we don't re-fire, then hide — this yields focus
+      // back to the terminal so the user can approve. The window stays alive.
+      wv.evaluateJavaScriptCompletionHandler(
+        $("try{document.title='Interlude';}catch(e){}"), function (r, e) {});
+      app.hide(null);
+    }
+    var cur = readFront();                                  // re-front request (or return from hide)?
     if (cur !== '' && cur !== lastFront) {
       lastFront = cur;
+      hiddenByUs = false;
+      app.activateIgnoringOtherApps(true);                  // also un-hides a hidden app
       win.makeKeyAndOrderFront(null);
-      app.activateIgnoringOtherApps(true);
     }
     // Ask the page what (if anything) the Social page wants embedded, and where.
     wv.evaluateJavaScriptCompletionHandler(

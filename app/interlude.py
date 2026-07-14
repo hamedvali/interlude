@@ -37,7 +37,7 @@ import urllib.request
 
 # Fallback only; the canonical version lives in the VERSION file next to this
 # script (so it ships under app/ and updates with the rest of the app).
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RUN_DIR = os.path.join(BASE_DIR, ".run")
@@ -51,6 +51,8 @@ DISABLED = os.path.join(RUN_DIR, "disabled")
 KEEP_FILE = os.path.join(RUN_DIR, "keep")
 FRONT_FILE = os.path.join(RUN_DIR, "front")
 OPEN_LOCK = os.path.join(RUN_DIR, "open.lock")
+LAST_TOOL_FILE = os.path.join(RUN_DIR, "lasttool")  # records the last tool failure (for the error state)
+BG_FILE = os.path.join(RUN_DIR, "backgrounded")     # set while the window is hidden awaiting a permission approval
 UPDATE_FILE = os.path.join(RUN_DIR, "update.json")
 UPDATE_LOCK = os.path.join(RUN_DIR, "update.lock")
 NO_UPDATE = os.path.join(RUN_DIR, "no-update")
@@ -80,6 +82,24 @@ SETTINGS_DEFAULTS = {
 }
 # Tools that count as Claude "doing something" when toolScope == "work".
 WORK_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "Task"}
+
+# State-aware attention routing: each state Claude can end a turn in gets a
+# distinct macOS system sound (played via afplay, so it fires even when the
+# window is closing). Gated behind the `sound` setting; opt-in, off by default.
+SOUND_DIR = "/System/Library/Sounds"
+SOUNDS = {
+    "done":        os.path.join(SOUND_DIR, "Glass.aiff"),   # soft, pleasant "finished"
+    "needs_input": os.path.join(SOUND_DIR, "Ping.aiff"),    # single "your turn" boop
+    "permission":  os.path.join(SOUND_DIR, "Funk.aiff"),    # more insistent — act now
+    "error":       os.path.join(SOUND_DIR, "Basso.aiff"),   # low "something's wrong"
+}
+# One-line banner shown in the popup for each state (see app.html).
+ATTENTION_LINES = {
+    "done":        "Claude's done",
+    "needs_input": "Claude's waiting for you",
+    "permission":  "Claude needs permission",
+    "error":       "Something went wrong — see terminal",
+}
 
 # --- auto-update settings (same source install.sh fetches from) ---
 UPDATE_REPO = os.environ.get("INTERLUDE_REPO", "hamedvali/interlude")
@@ -138,12 +158,96 @@ def read_status():
         return {"busy": False, "gen": 0}
 
 
-def write_status(busy, gen):
+def write_status(busy, gen, attention=None):
+    """Persist the shared status the web app polls.
+
+    `attention` is the state Claude ended a turn in ({state, line, since}) or
+    None while busy — the front-end reads it to pick a banner + close behavior.
+    """
     ensure_run()
     tmp = STATUS_FILE + ".tmp"
     with open(tmp, "w") as f:
-        json.dump({"busy": busy, "gen": gen}, f)
+        json.dump({"busy": busy, "gen": gen, "attention": attention}, f)
     os.replace(tmp, STATUS_FILE)
+
+
+def now_ms():
+    return int(time.time() * 1000)
+
+
+def attention(state):
+    """Build an attention payload for a state, timestamped now."""
+    return {"state": state, "line": ATTENTION_LINES.get(state, ""), "since": now_ms()}
+
+
+def play_sound(state):
+    """Play the system sound for a state, if the user enabled `sound`.
+
+    Best-effort and fully detached — never blocks the hook. afplay ships with
+    macOS; if it or the sound file is missing we simply stay silent.
+    """
+    try:
+        if not load_settings().get("sound"):
+            return
+        path = SOUNDS.get(state)
+        afplay = shutil.which("afplay")
+        if afplay and path and os.path.exists(path):
+            spawn_detached([afplay, path])
+    except Exception:
+        pass
+
+
+def record_tool_error(gen, err):
+    """Note that a tool failed during generation `gen` (consumed by on_stop)."""
+    ensure_run()
+    tmp = LAST_TOOL_FILE + ".tmp"
+    try:
+        with open(tmp, "w") as f:
+            json.dump({"gen": gen, "ts": now_ms(), "error": err}, f)
+        os.replace(tmp, LAST_TOOL_FILE)
+    except OSError:
+        pass
+
+
+def recent_tool_error(gen):
+    """Return the last tool error string if one happened this generation, else None."""
+    try:
+        with open(LAST_TOOL_FILE) as f:
+            rec = json.load(f)
+    except Exception:
+        return None
+    if rec.get("gen") == gen:
+        return rec.get("error") or ""
+    return None
+
+
+def set_bg():
+    """Mark that the window has gone to the background for a permission prompt."""
+    ensure_run()
+    try:
+        open(BG_FILE, "w").close()
+    except OSError:
+        pass
+
+
+def clear_bg():
+    try:
+        os.remove(BG_FILE)
+    except OSError:
+        pass
+
+
+def return_from_bg():
+    """If the window was hidden awaiting a permission approval, raise it again.
+
+    Called whenever Claude resumes (new prompt or tool). request_front bumps
+    the front-file that webview.js polls, so a backgrounded (app.hide'd) window
+    un-hides and comes forward exactly as it was — same session, nothing lost.
+    """
+    if os.path.exists(BG_FILE):
+        if alive(pid_from(WINDOW_PID)):
+            request_front()
+        clear_bg()
 
 
 def clear_keep():
@@ -468,6 +572,7 @@ def register_hooks():
         "UserPromptSubmit": ("on-prompt", None),
         "PreToolUse": ("on-pretool", "*"),
         "PostToolUse": ("on-tool", "*"),
+        "PostToolUseFailure": ("on-toolfail", "*"),
         "Stop": ("on-stop", None),
         "Notification": ("on-need", None),
     }
@@ -689,6 +794,7 @@ def _arm_watch(gen):
 def on_prompt():
     if is_disabled():
         return
+    return_from_bg()  # a new prompt after a permission prompt: bring the window back
     st = read_status()
     gen = int(st.get("gen", 0)) + 1
     clear_keep()
@@ -706,6 +812,7 @@ def on_pretool():
     something" trigger for tool-based opening."""
     if is_disabled():
         return
+    return_from_bg()  # permission approved -> Claude runs the tool -> raise the window back
     s = load_settings()
     if s.get("openOn") == "prompt":
         return  # prompt-only mode: tool activity shouldn't open the window
@@ -722,6 +829,7 @@ def on_pretool():
 def on_tool():
     if is_disabled():
         return
+    return_from_bg()
     st = read_status()
     gen = int(st.get("gen", 0))
     write_status(True, gen)  # keep same generation
@@ -732,15 +840,72 @@ def on_tool():
     _arm_watch(gen)
 
 
-def on_done():
-    # Shared by on-stop and on-need: invalidate watchers, mark idle, close.
+def on_stop():
+    """Claude finished its turn (Stop hook).
+
+    Distinguish a clean finish (`done`) from one where a tool failed this turn
+    (`error`). Done counts down and closes as before; error keeps the window up
+    (opening one if needed) so the failure is visible, and shows what broke.
+    """
     if is_disabled():
         return
     st = read_status()
+    gen = int(st.get("gen", 0))
+    err = recent_tool_error(gen)
+    clear_keep()
+    clear_bg()
+    state = "error" if err is not None else "done"
+    att = attention(state)
+    if err:  # surface the actual failure instead of the generic line
+        att["line"] = err if len(err) <= 140 else err[:139] + "…"
+    write_status(False, gen + 1, att)
+    play_sound(state)
+    # Every finished state shows the countdown modal and closes (the window's
+    # own countdown drives the close; do_close is the backstop).
+    spawn_detached([sys.executable, __file__, "_close"])
+
+
+def on_need():
+    """Claude sent a notification (Notification hook).
+
+    Classify by `notification_type`: a permission request is its own urgent
+    state; an idle prompt means it's your turn. Other notification types
+    (auth, MCP elicitation, …) don't change the popup's state.
+    """
+    if is_disabled():
+        return
+    ntype = hook_input().get("notification_type") or ""
+    if ntype == "permission_prompt":
+        state = "permission"
+    elif ntype in ("idle_prompt", "agent_needs_input"):
+        state = "needs_input"
+    else:
+        return  # not an attention-worthy notification — leave the popup as-is
+    st = read_status()
     gen = int(st.get("gen", 0)) + 1
     clear_keep()
-    write_status(False, gen)
-    spawn_detached([sys.executable, __file__, "_close"])
+    write_status(False, gen, attention(state))
+    play_sound(state)
+    if state == "permission":
+        # Don't close: the window shows its countdown, then steps aside
+        # (app.hide via webview.js) so you can approve in the terminal. The
+        # marker makes the next resume raise it back to the front.
+        set_bg()
+    else:
+        spawn_detached([sys.executable, __file__, "_close"])
+
+
+def on_toolfail():
+    """A tool failed (PostToolUseFailure hook). Record it for on_stop, so the
+    following Stop can route to the `error` state. User interrupts (Esc/Ctrl-C)
+    aren't real errors, so they're ignored."""
+    if is_disabled():
+        return
+    data = hook_input()
+    if data.get("is_interrupt"):
+        return
+    gen = int(read_status().get("gen", 0))
+    record_tool_error(gen, str(data.get("error") or ""))
 
 
 # ---------- admin ----------
@@ -759,6 +924,40 @@ def admin_on():
     except OSError:
         pass
     print("Interlude enabled.")
+
+
+def admin_sound():
+    """`interlude sound [on|off]` — toggle the per-state attention sounds.
+
+    Persists to settings.json (the same file the in-app Settings view writes),
+    so the CLI and UI stay in sync. With no argument, prints the current state.
+    """
+    args = sys.argv[2:]
+    cur = load_settings().get("sound", False)
+    if not args:
+        print(f"Attention sounds are {'on' if cur else 'off'}.")
+        return
+    want = args[0].lower()
+    if want not in ("on", "off"):
+        print("usage: interlude sound [on|off]")
+        return
+    try:
+        with open(SETTINGS_JSON) as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            data = {}
+    except Exception:
+        data = {}
+    data["sound"] = (want == "on")
+    ensure_run()
+    tmp = SETTINGS_JSON + ".tmp"
+    try:
+        with open(tmp, "w") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp, SETTINGS_JSON)
+        print(f"Attention sounds {want}.")
+    except OSError:
+        print("Could not write settings.")
 
 
 def admin_status():
@@ -846,12 +1045,14 @@ COMMANDS = {
     "on-prompt": on_prompt,
     "on-pretool": on_pretool,
     "on-tool": on_tool,
-    "on-stop": on_done,
-    "on-need": on_done,
+    "on-toolfail": on_toolfail,
+    "on-stop": on_stop,
+    "on-need": on_need,
     "_open": do_open,
     "_close": do_close,
     "on": admin_on,
     "off": admin_off,
+    "sound": admin_sound,
     "status": admin_status,
     "version": admin_version,
     "stop-server": admin_stop_server,

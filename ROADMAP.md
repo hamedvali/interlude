@@ -53,8 +53,9 @@ direct answer to theme #3. The clearest *gaps* are in themes #1 and #4.
 ## 🎯 Prioritized features
 
 ### Tier 1 — strongly evidence-backed, on-brand
-1. **State-aware attention routing** — distinct sound + window treatment for
-   done / needs-input / permission / error. Rides the #1 signal. **(Spec below.)**
+1. ✅ **State-aware attention routing** *(shipped v1.5.0)* — distinct sound +
+   colored banner for done / needs-input / permission / error. Rides the #1 signal.
+   **(Spec below.)**
 2. **Focus mode ("don't interrupt when I'm watching")** — quiet/suppress when the
    user is actively at the terminal. **(Spec below.)** *(Prevalence of this exact
    ask was flagged as thin; treat as a strong design principle, not proven majority.)*

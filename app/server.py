@@ -179,6 +179,9 @@ def read_status():
             status = json.load(f)
     except Exception:
         status = {"busy": False, "gen": 0}
+    # The attention field (state-aware routing) may be absent on older status
+    # files or while busy; keep it always present so the app can read it.
+    status.setdefault("attention", None)
     # Fold in the running version + auto-update lifecycle so the app's existing
     # 800ms poll drives the update toast with no extra request.
     status["version"] = read_version()
