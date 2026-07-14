@@ -59,6 +59,9 @@ direct answer to theme #3. The clearest *gaps* are in themes #1 and #4.
 2. **Focus mode ("don't interrupt when I'm watching")** — quiet/suppress when the
    user is actively at the terminal. **(Spec below.)** *(Prevalence of this exact
    ask was flagged as thin; treat as a strong design principle, not proven majority.)*
+   *Partially delivered v1.6.0:* **Snooze** — a top-right control (and `interlude
+   snooze 1h|3h|8h`) mutes the popup + sounds for a set time, then auto-resumes. That's
+   this spec's headline manual toggle; the terminal-frontmost / idle auto-gating is still open.
 3. **Wait-aware micro-recovery** — pick the activity by how long the wait is;
    add a genuinely zero-context "Reset" mode (breathe / look away / stretch).
    **(Spec below.)**

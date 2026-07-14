@@ -165,6 +165,25 @@
   .icon-btn:hover { color:var(--ink-1); }
   .icon-btn svg { width:18px; height:18px; }
 
+  /* snooze control (top-right) */
+  .snooze-wrap { position:relative; }
+  .icon-btn.snoozing { width:auto; gap:7px; padding:0 13px; color:var(--yellow);
+    background:var(--yellow-soft); border-color:transparent; font-size:13px; font-weight:650; }
+  .icon-btn.snoozing:hover { color:var(--yellow); }
+  .icon-btn.snoozing svg { width:15px; height:15px; }
+  .icon-btn.snoozing b { font-weight:700; }
+  .snooze-menu { position:absolute; top:47px; right:0; z-index:50; min-width:172px;
+    background:var(--surface-2); border:1px solid var(--line); border-radius:14px;
+    box-shadow:var(--shadow); padding:7px; display:flex; flex-direction:column; gap:2px; }
+  .snooze-menu[hidden] { display:none; }
+  .snooze-cap { font-size:11px; font-weight:750; letter-spacing:.04em; text-transform:uppercase;
+    color:var(--ink-3); padding:6px 10px 5px; }
+  .snooze-menu button { text-align:left; border:0; background:transparent; color:var(--ink-1);
+    font:inherit; font-size:13.5px; padding:9px 10px; border-radius:9px; cursor:pointer; }
+  .snooze-menu button:hover { background:var(--frame); }
+  .snooze-menu .snooze-resume { color:var(--violet); font-weight:650;
+    border-top:1px solid var(--line); border-radius:0 0 9px 9px; margin-top:3px; }
+
   .scroller { flex:1; overflow-y:auto; padding:2px 10px 24px 6px; }
   .scroller::-webkit-scrollbar { width:10px; }
   .scroller::-webkit-scrollbar-thumb { background:var(--line); border-radius:8px; border:3px solid var(--frame); }
@@ -463,6 +482,16 @@
             <svg class="icon" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/></svg>
             <b id="streak-chip">0</b>&nbsp;day streak
           </div>
+          <div class="snooze-wrap">
+            <button class="icon-btn" id="snoozeBtn" title="Snooze — mute Interlude for a while"></button>
+            <div class="snooze-menu" id="snoozeMenu" hidden>
+              <div class="snooze-cap">Mute Interlude for</div>
+              <button type="button" data-h="1">1 hour</button>
+              <button type="button" data-h="3">3 hours</button>
+              <button type="button" data-h="8">8 hours</button>
+              <button type="button" data-h="0" id="snzResume" class="snooze-resume" hidden>Resume now</button>
+            </div>
+          </div>
           <button class="icon-btn" id="theme" title="Toggle theme"></button>
           <div class="chip brand"><span class="bdot"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="2"/><rect x="14" y="4.5" width="4" height="15" rx="2"/></svg></span> Interlude</div>
         </div>
@@ -492,6 +521,7 @@ const api = {
   async settings(){ try{ return await (await fetch("/api/settings")).json(); }catch{ return {}; } },
   async saveSettings(patch){ try{ return await (await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(patch)})).json(); }catch{ return null; } },
   async openSocial(site){ try{ return await (await fetch("/api/social/open?site="+encodeURIComponent(site))).json(); }catch{ return null; } },
+  async snooze(hours){ try{ return await (await fetch("/api/snooze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({hours})})).json(); }catch{ return null; } },
 };
 let SETTINGS = {};
 const todayStr = ()=> new Date().toISOString().slice(0,10);
@@ -509,6 +539,7 @@ const I = {
   grid:`<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>`,
   sun:`<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`,
   moon:`<svg class="icon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,
+  snooze:`<svg class="icon" viewBox="0 0 24 24"><path d="M4 8h7L4 17h7"/><path d="M14 4h5l-5 6h5"/></svg>`,
   checkmini:`<svg class="icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>`,
   arrowup:`<svg class="icon" viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>`,
   window:`<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 8.5h18"/><circle cx="6.4" cy="6.2" r=".7" fill="currentColor" stroke="none"/></svg>`,
@@ -1257,8 +1288,44 @@ function renderUpdate(u, version){
   }
 }
 
+/* ---------------- snooze (top-right mute) ---------------- */
+function fmtSnoozeLeft(ms){
+  const m=Math.max(0,Math.round(ms/60000));
+  if(m>=60){ const h=Math.floor(m/60); return h+"h "+(m%60)+"m"; }
+  return m>=1 ? m+"m" : "<1m";
+}
+function renderSnooze(snz){
+  const btn=$("#snoozeBtn"); if(!btn) return;
+  const active = snz && snz.until && (snz.until-Date.now()>0);
+  if(active){
+    btn.classList.add("snoozing");
+    btn.innerHTML = I.snooze + "<b>"+fmtSnoozeLeft(snz.until-Date.now())+"</b>";
+    btn.title = "Snoozed — click to change or resume";
+    $("#snzResume").hidden = false;
+  } else {
+    btn.classList.remove("snoozing");
+    btn.innerHTML = I.snooze;
+    btn.title = "Snooze — mute Interlude for a while";
+    $("#snzResume").hidden = true;
+  }
+}
+function wireSnooze(){
+  const btn=$("#snoozeBtn"), menu=$("#snoozeMenu");
+  btn.innerHTML = I.snooze;
+  btn.onclick = e=>{ e.stopPropagation(); menu.hidden=!menu.hidden; };
+  menu.querySelectorAll("button").forEach(b=>b.onclick=async e=>{
+    e.stopPropagation();
+    menu.hidden=true;
+    await api.snooze(parseInt(b.dataset.h,10)||0);
+    poll();                                   // reflect the new state immediately
+  });
+  document.addEventListener("click",()=>{ if(!menu.hidden) menu.hidden=true; });
+  window.addEventListener("keydown",e=>{ if(e.key==="Escape" && !menu.hidden) menu.hidden=true; });
+}
+
 async function poll(){
   const s=await api.status(); latestBusy=s.busy; curGen=s.gen||0;
+  renderSnooze(s.snooze);
   if(loadedVersion===null && s.version) loadedVersion=s.version;
   const st=$("#status"), t=$("#status-text");
   if(s.busy){
@@ -1280,7 +1347,7 @@ async function init(){
   STATE=await api.state();
   STATE.words=STATE.words||{}; STATE.games=STATE.games||{}; STATE.arcade=STATE.arcade||{}; STATE.history=STATE.history||[];
   SETTINGS=await api.settings();
-  applyThemeIcon(); updateChrome();
+  applyThemeIcon(); updateChrome(); wireSnooze();
   switchView(["learn","play","progress"].includes(SETTINGS.defaultView)?SETTINGS.defaultView:"learn");
   poll(); setInterval(poll,800);
 }

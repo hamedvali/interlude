@@ -11,6 +11,7 @@ import os
 import shutil
 import subprocess
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -22,6 +23,7 @@ KEEP_FILE = os.path.join(RUN_DIR, "keep")
 UPDATE_FILE = os.path.join(RUN_DIR, "update.json")
 DISABLED_FILE = os.path.join(RUN_DIR, "disabled")
 NO_UPDATE_FILE = os.path.join(RUN_DIR, "no-update")
+SNOOZE_FILE = os.path.join(RUN_DIR, "snooze")   # epoch-ms deadline while the app is muted
 APP_FILE = os.path.join(BASE_DIR, "app.html")
 VERSION_FILE = os.path.join(BASE_DIR, "VERSION")
 SETTINGS_JSON = os.path.join(BASE_DIR, "settings.json")
@@ -173,6 +175,42 @@ def write_settings(incoming):
     return read_settings()
 
 
+def read_snooze():
+    """Active snooze as {"until": <epoch-ms>}, or None. Self-cleans a lapsed file."""
+    try:
+        with open(SNOOZE_FILE) as f:
+            until = int(f.read().strip() or 0)
+    except Exception:
+        return None
+    if until > int(time.time() * 1000):
+        return {"until": until}
+    try:
+        os.remove(SNOOZE_FILE)   # expired — tidy up so the state reads cleanly
+    except OSError:
+        pass
+    return None
+
+
+def write_snooze(hours):
+    """Set (hours in {1,3,8}) or clear (hours == 0) the snooze deadline. Returns the deadline ms (0 = cleared)."""
+    if hours == 0:
+        try:
+            os.remove(SNOOZE_FILE)
+        except OSError:
+            pass
+        return 0
+    until = int(time.time() * 1000) + hours * 3600_000
+    tmp = SNOOZE_FILE + ".tmp"
+    try:
+        os.makedirs(RUN_DIR, exist_ok=True)
+        with open(tmp, "w") as f:
+            f.write(str(until))
+        os.replace(tmp, SNOOZE_FILE)
+    except OSError:
+        return 0
+    return until
+
+
 def read_status():
     try:
         with open(STATUS_FILE) as f:
@@ -190,6 +228,8 @@ def read_status():
             status["update"] = json.load(f)
     except Exception:
         status["update"] = {"phase": "idle"}
+    # Snooze rides the same poll so the top-right control ticks + auto-clears live.
+    status["snooze"] = read_snooze()
     return status
 
 
@@ -399,6 +439,17 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 pass
             self._send(200, {"ok": True, "kept": gen})
+        elif path == "/api/snooze":
+            # Mute the app for 1/3/8h (hours in {1,3,8}) or clear it (hours == 0).
+            try:
+                hours = int(json.loads(raw or b"{}").get("hours", 0))
+            except Exception:
+                hours = 0
+            if hours not in (0, 1, 3, 8):
+                self._send(400, {"error": "hours must be 0, 1, 3, or 8"})
+                return
+            until = write_snooze(hours)
+            self._send(200, {"ok": True, "until": until})
         elif path == "/api/update":
             # The app acknowledges/dismisses a finished update toast
             # (restart_needed / error / updated) — reset the lifecycle to idle.

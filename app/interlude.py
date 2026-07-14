@@ -37,7 +37,7 @@ import urllib.request
 
 # Fallback only; the canonical version lives in the VERSION file next to this
 # script (so it ships under app/ and updates with the rest of the app).
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RUN_DIR = os.path.join(BASE_DIR, ".run")
@@ -53,6 +53,7 @@ FRONT_FILE = os.path.join(RUN_DIR, "front")
 OPEN_LOCK = os.path.join(RUN_DIR, "open.lock")
 LAST_TOOL_FILE = os.path.join(RUN_DIR, "lasttool")  # records the last tool failure (for the error state)
 BG_FILE = os.path.join(RUN_DIR, "backgrounded")     # set while the window is hidden awaiting a permission approval
+SNOOZE_FILE = os.path.join(RUN_DIR, "snooze")       # holds an epoch-ms deadline; while now < it, the app is muted
 UPDATE_FILE = os.path.join(RUN_DIR, "update.json")
 UPDATE_LOCK = os.path.join(RUN_DIR, "update.lock")
 NO_UPDATE = os.path.join(RUN_DIR, "no-update")
@@ -187,6 +188,8 @@ def play_sound(state):
     macOS; if it or the sound file is missing we simply stay silent.
     """
     try:
+        if is_snoozed():
+            return
         if not load_settings().get("sound"):
             return
         path = SOUNDS.get(state)
@@ -248,6 +251,28 @@ def return_from_bg():
         if alive(pid_from(WINDOW_PID)):
             request_front()
         clear_bg()
+
+
+def snooze_until():
+    """Epoch-ms deadline of an active snooze, or 0 if none/unreadable."""
+    try:
+        with open(SNOOZE_FILE) as f:
+            return int(f.read().strip() or 0)
+    except Exception:
+        return 0
+
+
+def is_snoozed():
+    """True while the app is muted. Self-cleaning: a lapsed deadline is removed."""
+    until = snooze_until()
+    if until > now_ms():
+        return True
+    if until:  # present but expired — tidy up so the state reads cleanly
+        try:
+            os.remove(SNOOZE_FILE)
+        except OSError:
+            pass
+    return False
 
 
 def clear_keep():
@@ -380,6 +405,8 @@ def do_open():
     already alive we raise it to the front rather than no-op, so every prompt
     reliably brings Interlude forward.
     """
+    if is_snoozed():
+        return  # muted — never surface the window while a snooze is active
     ensure_run()
     with open(OPEN_LOCK, "w") as lock:
         try:
@@ -784,6 +811,8 @@ def maybe_check_update():
 # ---------- hook entry points ----------
 def _arm_watch(gen):
     """Spawn a delayed opener for this generation, unless one's already covering it."""
+    if is_snoozed():
+        return  # muted — don't even spawn the watcher
     if alive(pid_from(WINDOW_PID)):
         return  # window already up
     if alive(pid_from(WATCH_PID)):
@@ -960,11 +989,55 @@ def admin_sound():
         print("Could not write settings.")
 
 
+def admin_snooze():
+    """`interlude snooze [1h|3h|8h|off]` — mute the app for a while, then auto-resume.
+
+    Writes an absolute epoch-ms deadline to .run/snooze (the same file the in-app
+    top-right control and the server write). With no argument, prints the time left.
+    """
+    args = sys.argv[2:]
+    if not args:
+        left = snooze_until() - now_ms()
+        if left > 0:
+            mins = (left + 59_999) // 60_000
+            h, m = divmod(mins, 60)
+            print("Snoozed — " + (f"~{h}h {m}m left." if h else f"~{m}m left."))
+        else:
+            print("Not snoozed.")
+        return
+    want = args[0].lower().rstrip("h")
+    if want in ("off", "0", "resume", "cancel"):
+        try:
+            os.remove(SNOOZE_FILE)
+        except OSError:
+            pass
+        print("Snooze cleared.")
+        return
+    try:
+        hours = int(want)
+    except ValueError:
+        hours = 0
+    if hours not in (1, 3, 8):
+        print("usage: interlude snooze [1h|3h|8h|off]")
+        return
+    ensure_run()
+    deadline = now_ms() + hours * 3600_000
+    tmp = SNOOZE_FILE + ".tmp"
+    try:
+        with open(tmp, "w") as f:
+            f.write(str(deadline))
+        os.replace(tmp, SNOOZE_FILE)
+        print(f"Snoozed for {hours}h — Interlude will stay quiet until then.")
+    except OSError:
+        print("Could not write snooze.")
+
+
 def admin_status():
     port = read_port()
     print(json.dumps({
         "version": local_version(),
         "disabled": is_disabled(),
+        "snoozed_until": snooze_until() or None,
         "auto_update": not update_disabled(),
         "settings": load_settings(),
         "update": read_update(),
@@ -1053,6 +1126,7 @@ COMMANDS = {
     "on": admin_on,
     "off": admin_off,
     "sound": admin_sound,
+    "snooze": admin_snooze,
     "status": admin_status,
     "version": admin_version,
     "stop-server": admin_stop_server,
