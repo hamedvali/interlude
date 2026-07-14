@@ -52,8 +52,8 @@ SETTINGS_DEFAULTS = {
     "openOn": os.environ.get("INTERLUDE_OPEN_ON", "tool"),
     "toolScope": os.environ.get("INTERLUDE_TOOL_SCOPE", "all"),
     "openDelay": float(os.environ.get("INTERLUDE_DELAY", "3")),
-    "width": int(os.environ.get("INTERLUDE_WIDTH", "1240")),
-    "height": int(os.environ.get("INTERLUDE_HEIGHT", "840")),
+    "width": int(os.environ.get("INTERLUDE_WIDTH", "350")),
+    "height": int(os.environ.get("INTERLUDE_HEIGHT", "800")),
     "defaultView": "learn",
     "sound": False,
 }

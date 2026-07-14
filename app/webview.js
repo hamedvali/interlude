@@ -28,8 +28,8 @@ function run(argv) {
   ObjC.import('WebKit');
 
   var url = argv[0] || 'about:blank';
-  var W = parseInt(argv[1], 10) || 1240;
-  var H = parseInt(argv[2], 10) || 840;
+  var W = parseInt(argv[1], 10) || 350;
+  var H = parseInt(argv[2], 10) || 800;
   var FRONT_FILE = argv[3] || '';   // interlude.py bumps this to re-front us
   var CLOSE = '__INTERLUDE_CLOSE__';
   var HIDE = '__INTERLUDE_HIDE__';  // permission: step aside (app.hide) instead of closing

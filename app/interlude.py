@@ -37,7 +37,7 @@ import urllib.request
 
 # Fallback only; the canonical version lives in the VERSION file next to this
 # script (so it ships under app/ and updates with the rest of the app).
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RUN_DIR = os.path.join(BASE_DIR, ".run")
@@ -64,8 +64,8 @@ VERSION_FILE = os.path.join(BASE_DIR, "VERSION")
 SETTINGS_JSON = os.path.join(BASE_DIR, "settings.json")  # user-editable app settings
 DEFAULT_PORT = int(os.environ.get("INTERLUDE_PORT", "47615"))
 OPEN_DELAY = float(os.environ.get("INTERLUDE_DELAY", "3"))
-WINDOW_W = int(os.environ.get("INTERLUDE_WIDTH", "1240"))
-WINDOW_H = int(os.environ.get("INTERLUDE_HEIGHT", "840"))
+WINDOW_W = int(os.environ.get("INTERLUDE_WIDTH", "350"))
+WINDOW_H = int(os.environ.get("INTERLUDE_HEIGHT", "800"))
 
 # User-editable settings (via the in-app Settings view -> server -> settings.json).
 # Env vars seed the defaults so existing installs keep their behavior; the file

@@ -441,6 +441,96 @@
   .num:focus { outline:none; border-color:var(--violet); }
   .set-dim { opacity:.45; pointer-events:none; }
   .set-foot { text-align:center; font-size:12px; color:var(--ink-3); padding:2px 0 4px; }
+
+  /* ============================================================
+     Compact layout — the 350×800 default popup (and any narrow window).
+     The left rail folds down into a bottom tab bar and every page
+     collapses to a single, edge-to-edge column, like a phone app.
+     ============================================================ */
+  @media (max-width:600px) {
+    body { padding:0; }
+    .app { flex-direction:column; gap:0; padding:0; border-radius:0;
+      background:transparent; box-shadow:none; }
+
+    /* rail -> bottom tab bar */
+    .rail { order:2; width:auto; flex:0 0 auto; align-self:auto; height:62px;
+      flex-direction:row; align-items:center; justify-content:space-around;
+      padding:0 8px; border-radius:0;
+      background:linear-gradient(90deg,var(--rail-1),var(--rail-2));
+      box-shadow:0 -6px 22px rgba(108,60,224,.26); }
+    .rail-logo { display:none; }
+    .rail-nav, .rail-foot { display:contents; }
+    .rico { width:54px; height:44px; border-radius:13px; }
+    .rico svg { width:23px; height:23px; }
+    .rico.active { transform:none; box-shadow:0 6px 14px rgba(50,24,110,.28); }
+
+    /* stage + top bar */
+    .stage { order:1; flex:1; min-width:0; min-height:0; padding:0; }
+    .topbar { padding:12px 14px 10px; gap:10px; }
+    .status-pill { flex:1; min-width:0; padding:9px 14px; font-size:13px;
+      white-space:nowrap; overflow:hidden; }
+    .status-pill #status-text { overflow:hidden; text-overflow:ellipsis; }
+    .chip.streak, .chip.brand { display:none; }
+    .top-right { gap:8px; }
+    .icon-btn { width:37px; height:37px; }
+    .scroller { padding:2px 14px 18px; }
+
+    /* learn */
+    .grid-learn { gap:16px; }
+    .hero { min-height:0; padding:20px; }
+    .hi { font-size:25px; }
+    .hero-sub { font-size:13px; margin:7px 0 13px; max-width:100%; }
+    .hero-stats { gap:14px; }
+    .flashcard { padding:18px; }
+    .flash { min-height:168px; }
+    .flash .word { font-size:31px; }
+    .flash .def { font-size:18px; }
+    .stat-grid { gap:10px; }
+    .stat-card { min-height:90px; padding:13px 14px; border-radius:16px; }
+    .stat-card b { font-size:23px; }
+    .stat-card .sc-ico { width:29px; height:29px; }
+
+    /* play */
+    .sec-title { font-size:17px; }
+    .game-grid { gap:10px; margin-bottom:14px; }
+    .game-card { padding:14px; }
+    .gc-top { margin-bottom:16px; }
+    .arcade-frame { height:520px; max-height:62vh; }
+    .prompt-word { font-size:23px; }
+    .opt { padding:12px 13px; font-size:14px; margin:7px 0; }
+    .letters { gap:6px; margin:14px 0; }
+    .lchip { width:33px; height:43px; font-size:19px; }
+    .grid-guess { gap:5px; }
+    .gcell { width:38px; height:38px; font-size:17px; }
+    input.text { font-size:15px; }
+
+    /* progress */
+    .grid-prog, .prog-wrap { gap:14px; }
+    .gauge { width:210px; height:210px; }
+
+    /* social */
+    .social-head { gap:8px; margin:2px 0 12px; }
+    .stabs { flex:1; min-width:0; overflow-x:auto; padding:4px; gap:4px; }
+    .stab { padding:8px 10px; font-size:12.5px; white-space:nowrap; }
+    .spop { font-size:0; padding:10px; }
+    .spop svg { width:15px; height:15px; }
+    .social-stage { height:calc(100vh - 190px); min-height:280px; }
+
+    /* settings */
+    .set-card { padding:6px 18px; }
+    .set-row { flex-direction:column; align-items:stretch; gap:11px; }
+    .set-row.stack { align-items:stretch; }
+    .set-ctl { width:100%; }
+    .set-desc { max-width:none; }
+    .seg { display:flex; }
+    .seg button { flex:1; text-align:center; padding:8px 4px; }
+    .set-range { justify-content:space-between; }
+    .set-range input[type=range] { flex:1; width:auto; }
+    .switch { align-self:flex-start; }
+
+    /* overlays sit above the bottom bar */
+    .toast { left:12px; right:12px; bottom:74px; max-width:none; }
+  }
 </style>
 </head>
 <body>
@@ -1001,9 +1091,9 @@ function renderSettings(){
           <div class="set-desc">Width × height in pixels. Applies the next time the window opens.</div>
         </div>
         <div class="set-ctl" style="display:flex;gap:9px;align-items:center">
-          <input class="num" id="numW" type="number" min="320" max="4000" value="${parseInt(s.width)||1240}">
+          <input class="num" id="numW" type="number" min="320" max="4000" value="${parseInt(s.width)||350}">
           <span class="muted">×</span>
-          <input class="num" id="numH" type="number" min="320" max="4000" value="${parseInt(s.height)||840}">
+          <input class="num" id="numH" type="number" min="320" max="4000" value="${parseInt(s.height)||800}">
         </div>
       </div>
     </div>
@@ -1056,8 +1146,8 @@ function renderSettings(){
 
   const numW=$("#numW"), numH=$("#numH");
   const clamp=(n,d)=>{ n=parseInt(n); return isNaN(n)?d:Math.max(320,Math.min(4000,n)); };
-  numW.onchange=()=>{ numW.value=clamp(numW.value,1240); saveSetting({width:parseInt(numW.value)}); };
-  numH.onchange=()=>{ numH.value=clamp(numH.value,840); saveSetting({height:parseInt(numH.value)}); };
+  numW.onchange=()=>{ numW.value=clamp(numW.value,350); saveSetting({width:parseInt(numW.value)}); };
+  numH.onchange=()=>{ numH.value=clamp(numH.value,800); saveSetting({height:parseInt(numH.value)}); };
 
   $("#swSound").onchange=e=>{ if(e.target.checked) chime(); saveSetting({sound:e.target.checked}); };
   $("#swEnabled").onchange=e=>saveSetting({enabled:e.target.checked});
