@@ -1,0 +1,32 @@
+{
+  "name": "interlude",
+  "owner": {
+    "name": "Hamed Valigholizadeh"
+  },
+  "description": "Interlude — turn Claude Code's wait time into flashcards and games.",
+  "plugins": [
+    {
+      "name": "interlude",
+      "source": "./",
+      "displayName": "Interlude",
+      "description": "A native macOS popup that appears while Claude Code is working — flashcards, word games, and a resumable game of 2048 — and closes itself when the turn is over.",
+      "version": "1.12.0",
+      "author": {
+        "name": "Hamed Valigholizadeh",
+        "url": "https://github.com/hamedvali"
+      },
+      "homepage": "https://github.com/hamedvali/interlude",
+      "repository": "https://github.com/hamedvali/interlude",
+      "license": "MIT",
+      "category": "productivity",
+      "keywords": [
+        "flashcards",
+        "spaced-repetition",
+        "games",
+        "notifications",
+        "macos",
+        "vocabulary"
+      ]
+    }
+  ]
+}

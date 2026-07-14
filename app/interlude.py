@@ -37,10 +37,34 @@ import urllib.request
 
 # Fallback only; the canonical version lives in the VERSION file next to this
 # script (so it ships under app/ and updates with the rest of the app).
-__version__ = "1.11.0"
+__version__ = "1.12.0"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-RUN_DIR = os.path.join(BASE_DIR, ".run")
+
+# True when we're running out of an installed Claude Code plugin, whose root
+# holds the manifest one level above app/. Claude owns the code directory then:
+# it replaces the whole thing on update, so we must not self-update, and no
+# user data may live inside it.
+IS_PLUGIN = os.path.isfile(os.path.join(os.path.dirname(BASE_DIR), ".claude-plugin", "plugin.json"))
+
+
+def _data_dir():
+    """Where progress, settings, and runtime files live.
+
+    Kept apart from BASE_DIR (the code) so a plugin update can't delete a user's
+    flashcard history. Installs that predate the split keep their data exactly
+    where it already is.
+    """
+    env = os.environ.get("INTERLUDE_DATA")
+    if env:
+        return os.path.abspath(os.path.expanduser(env))
+    if os.path.exists(os.path.join(BASE_DIR, "state.json")):
+        return BASE_DIR
+    return os.path.expanduser("~/.interlude")
+
+
+DATA_DIR = _data_dir()
+RUN_DIR = os.path.join(DATA_DIR, ".run")
 STATUS_FILE = os.path.join(RUN_DIR, "status")
 PORT_FILE = os.path.join(RUN_DIR, "port")
 WINDOW_PID = os.path.join(RUN_DIR, "window.pid")
@@ -61,7 +85,7 @@ NO_UPDATE = os.path.join(RUN_DIR, "no-update")
 SERVER_PY = os.path.join(BASE_DIR, "server.py")
 WEBVIEW_JS = os.path.join(BASE_DIR, "webview.js")
 VERSION_FILE = os.path.join(BASE_DIR, "VERSION")
-SETTINGS_JSON = os.path.join(BASE_DIR, "settings.json")  # user-editable app settings
+SETTINGS_JSON = os.path.join(DATA_DIR, "settings.json")  # user-editable app settings
 DEFAULT_PORT = int(os.environ.get("INTERLUDE_PORT", "47615"))
 OPEN_DELAY = float(os.environ.get("INTERLUDE_DELAY", "3"))
 WINDOW_W = int(os.environ.get("INTERLUDE_WIDTH", "350"))
@@ -547,6 +571,10 @@ def write_update(phase, **fields):
 
 
 def update_disabled():
+    # Under Claude Code, the plugin manager owns the code directory — `claude
+    # plugin update interlude` is the only safe way to upgrade.
+    if IS_PLUGIN:
+        return True
     return os.environ.get("INTERLUDE_NO_UPDATE") == "1" or os.path.exists(NO_UPDATE)
 
 

@@ -46,12 +46,28 @@ exactly when it's time to read or reply.
 
 ## 🚀 Install
 
+**As a Claude Code plugin** (recommended):
+
+```bash
+claude plugin marketplace add hamedvali/interlude
+claude plugin install interlude@interlude
+```
+
+Upgrades come through `claude plugin update interlude`.
+
+**Or with the installer script:**
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/hamedvali/interlude/main/install.sh | bash
 ```
 
-Then **restart Claude Code**. That's it — next time Claude runs for more than a few seconds,
+This one registers the hooks itself, installs an `interlude` CLI, and keeps itself up to date.
+
+Either way, **restart Claude Code**. That's it — next time Claude runs for more than a few seconds,
 Interlude appears. ✨
+
+Both routes keep your progress in `~/.interlude`, so you can switch between them without losing a
+streak. Pick one, though — installing both registers the hooks twice.
 
 > [!NOTE]
 > **macOS only.** Requires `python3` and `osascript`, both of which ship with macOS. The window is
@@ -151,6 +167,10 @@ plays built-in macOS system chimes via `afplay` — zero new dependencies.
 <br />
 
 ## 🔄 Auto-update
+
+> [!NOTE]
+> This applies to the **installer-script** route. Plugin installs are updated by Claude Code
+> itself (`claude plugin update interlude`), so Interlude leaves its own code alone there.
 
 Once installed, Interlude keeps itself current. It checks its GitHub repo in the background
 (a few times a day, throttled), and when a newer version is out it **downloads and applies it

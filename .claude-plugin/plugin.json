@@ -1,0 +1,21 @@
+{
+  "name": "interlude",
+  "displayName": "Interlude",
+  "version": "1.12.0",
+  "description": "A native macOS popup that appears while Claude Code is working — flashcards, word games, and a resumable game of 2048 — and closes itself when the turn is over.",
+  "author": {
+    "name": "Hamed Valigholizadeh",
+    "url": "https://github.com/hamedvali"
+  },
+  "homepage": "https://github.com/hamedvali/interlude",
+  "repository": "https://github.com/hamedvali/interlude",
+  "license": "MIT",
+  "keywords": [
+    "flashcards",
+    "spaced-repetition",
+    "games",
+    "notifications",
+    "macos",
+    "vocabulary"
+  ]
+}

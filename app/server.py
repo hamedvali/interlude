@@ -16,7 +16,22 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-RUN_DIR = os.path.join(BASE_DIR, ".run")
+
+
+def _data_dir():
+    """Where progress, settings, and runtime files live. Kept apart from
+    BASE_DIR (the code) so a plugin update can't delete a user's flashcard
+    history. Must stay in sync with interlude.py's copy."""
+    env = os.environ.get("INTERLUDE_DATA")
+    if env:
+        return os.path.abspath(os.path.expanduser(env))
+    if os.path.exists(os.path.join(BASE_DIR, "state.json")):
+        return BASE_DIR
+    return os.path.expanduser("~/.interlude")
+
+
+DATA_DIR = _data_dir()
+RUN_DIR = os.path.join(DATA_DIR, ".run")
 STATUS_FILE = os.path.join(RUN_DIR, "status")
 PORT_FILE = os.path.join(RUN_DIR, "port")
 KEEP_FILE = os.path.join(RUN_DIR, "keep")
@@ -26,9 +41,9 @@ NO_UPDATE_FILE = os.path.join(RUN_DIR, "no-update")
 SNOOZE_FILE = os.path.join(RUN_DIR, "snooze")   # epoch-ms deadline while the app is muted
 APP_FILE = os.path.join(BASE_DIR, "app.html")
 VERSION_FILE = os.path.join(BASE_DIR, "VERSION")
-SETTINGS_JSON = os.path.join(BASE_DIR, "settings.json")
+SETTINGS_JSON = os.path.join(DATA_DIR, "settings.json")
 DECK_FILE = os.path.join(BASE_DIR, "words.json")
-STATE_FILE = os.path.join(BASE_DIR, "state.json")
+STATE_FILE = os.path.join(DATA_DIR, "state.json")
 GAMES_DIR = os.path.join(BASE_DIR, "games")
 BROWSER_JS = os.path.join(BASE_DIR, "browser.js")
 
@@ -164,6 +179,7 @@ def write_settings(incoming):
         cur.update(patch)
         tmp = SETTINGS_JSON + ".tmp"
         try:
+            os.makedirs(DATA_DIR, exist_ok=True)
             with open(tmp, "w") as f:
                 json.dump(cur, f, indent=2)
             os.replace(tmp, SETTINGS_JSON)
@@ -243,6 +259,7 @@ def read_json(path, default):
 
 
 def write_state(state):
+    os.makedirs(DATA_DIR, exist_ok=True)
     tmp = STATE_FILE + ".tmp"
     with open(tmp, "w") as f:
         json.dump(state, f, indent=2)
