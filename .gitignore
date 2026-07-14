@@ -11,5 +11,8 @@ __pycache__/
 *.bak.*
 .DS_Store
 
+# Raw screen recordings (only the exported GIF belongs in the repo)
+*.mov
+
 # Tooling artifacts
 .playwright-mcp/

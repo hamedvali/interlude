@@ -23,7 +23,7 @@ exactly when it's time to read or reply.
 
 <br />
 
-<img src="docs/learn.png" alt="Interlude — a flashcard surfaces while Claude is working" width="300" />
+<img src="docs/demo.gif" alt="Interlude — a flashcard, a game of 2048, and the window closing itself the moment Claude is done" width="820" />
 
 </div>
 
