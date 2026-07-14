@@ -54,13 +54,11 @@ SETTINGS_DEFAULTS = {
     "openDelay": float(os.environ.get("INTERLUDE_DELAY", "3")),
     "width": int(os.environ.get("INTERLUDE_WIDTH", "350")),
     "height": int(os.environ.get("INTERLUDE_HEIGHT", "800")),
-    "defaultView": "learn",
     "sound": False,
 }
 _SETTINGS_CHOICES = {
     "openOn": {"tool", "prompt", "both"},
     "toolScope": {"all", "work"},
-    "defaultView": {"learn", "play", "progress"},
 }
 
 # Content types for the vendored games served out of app/games/.
@@ -79,12 +77,15 @@ MIME = {
 
 DEFAULT_STATE = {
     "words": {},        # word -> {"box": 1, "seen": 0, "correct": 0}
+    "deck": [],          # user-managed word list, seeded from words.json on first run
+    "deckSeeded": False, # True once seeded, so an emptied deck isn't re-seeded
     "games": {},        # gameId -> {"played": 0, "best": 0, "wins": 0}
     "arcade": {},       # gameId -> {"store": "<json>", "best": N, "updatedAt": ms}
     "streak": 0,
     "lastDay": "",
     "reviews": 0,
     "history": [],       # list of {"day": "YYYY-MM-DD", "reviews": N}
+    "nav": {},           # last-visited location: {"view","learnTab","social","arcade"}
 }
 
 
@@ -117,7 +118,7 @@ def read_settings():
 def _coerce_settings(incoming):
     """Validate/clamp an incoming settings patch down to known, safe values."""
     out = {}
-    for k in ("openOn", "toolScope", "defaultView"):
+    for k in ("openOn", "toolScope"):
         if k in incoming and incoming[k] in _SETTINGS_CHOICES[k]:
             out[k] = incoming[k]
     if "openDelay" in incoming:

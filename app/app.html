@@ -275,6 +275,63 @@
   .stat-card.coral  { background:linear-gradient(135deg,#FCA07E,#F0714B); }
   .stat-card.cyan   { background:linear-gradient(135deg,#5FD6E4,#2FB2C6); }
 
+  /* ---------- Words (deck manager) ---------- */
+  .words-bar { display:flex; gap:10px; align-items:center; margin:2px 0 14px; }
+  .words-search { position:relative; flex:1; min-width:0; }
+  .words-search svg { position:absolute; left:12px; top:50%; transform:translateY(-50%);
+    width:16px; height:16px; color:var(--ink-3); pointer-events:none; }
+  .wsearch-input { width:100%; border:1px solid var(--line); background:var(--surface-2); color:var(--ink-1);
+    border-radius:12px; padding:11px 13px 11px 36px; font:inherit; font-size:14px; outline:none; transition:.14s; }
+  .wsearch-input:focus { border-color:var(--violet); box-shadow:0 0 0 3px var(--violet-soft); background:var(--frame); }
+  .words-add { display:inline-flex; align-items:center; gap:7px; padding:11px 15px; white-space:nowrap; }
+  .words-add svg { width:16px; height:16px; }
+
+  .word-rows { display:flex; flex-direction:column; gap:8px; }
+  .word-row { display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid var(--line);
+    border-radius:14px; background:var(--frame); box-shadow:var(--shadow-sm); transition:.14s; }
+  .word-row:hover { border-color:var(--box2); }
+  .word-row.confirming { border-color:var(--danger); background:var(--danger-soft); }
+  .wr-main { flex:1; min-width:0; }
+  .wr-top { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  .wr-word { font-weight:700; font-size:15px; color:var(--ink-1); letter-spacing:-.01em; }
+  .wr-pos { font-style:italic; font-size:12px; color:var(--ink-3); }
+  .wr-box { font-size:10.5px; font-weight:700; color:var(--violet); background:var(--violet-soft);
+    border-radius:999px; padding:2px 8px; }
+  .wr-def { font-size:13px; color:var(--ink-2); margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .wr-acts { display:flex; align-items:center; gap:6px; flex:0 0 auto; }
+  .wr-btn { width:34px; height:34px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2);
+    color:var(--ink-2); display:grid; place-items:center; cursor:pointer; transition:.14s; }
+  .wr-btn svg { width:16px; height:16px; }
+  .wr-btn:hover { color:var(--ink-1); background:var(--violet-soft); }
+  .wr-btn.danger:hover { color:var(--danger); background:var(--danger-soft); border-color:transparent; }
+  .wr-confirm { font-size:12.5px; font-weight:650; color:var(--danger); margin-right:2px; }
+
+  .words-none { text-align:center; color:var(--ink-3); font-size:13.5px; padding:26px 10px; }
+  .words-empty { text-align:center; display:flex; flex-direction:column; align-items:center; gap:9px; padding:30px 24px; }
+  .words-empty .we-ic { width:48px; height:48px; border-radius:14px; display:grid; place-items:center;
+    background:var(--violet-soft); color:var(--violet); }
+  .words-empty .we-ic svg { width:23px; height:23px; }
+  .words-empty .we-t { font-weight:750; font-size:16.5px; color:var(--ink-1); letter-spacing:-.01em; }
+  .words-empty .we-s { font-size:13px; color:var(--ink-3); max-width:360px; line-height:1.5; }
+  .words-empty .we-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:6px; }
+  .words-empty .btn { display:inline-flex; align-items:center; gap:7px; }
+  .words-empty .btn svg { width:16px; height:16px; }
+
+  /* word editor (add / edit) */
+  .editor-bar { display:flex; align-items:center; gap:12px; margin:2px 0 14px; }
+  .editor-card { display:flex; flex-direction:column; gap:15px; padding:20px 22px; }
+  .fld { display:flex; flex-direction:column; gap:7px; }
+  .fld-l { font-size:12.5px; font-weight:700; color:var(--ink-1); }
+  .fld-l em { font-style:normal; font-weight:600; color:var(--ink-3); font-size:11.5px; margin-left:5px; }
+  .finput { width:100%; border:1px solid var(--line); background:var(--surface-2); color:var(--ink-1);
+    border-radius:12px; padding:11px 13px; font:inherit; font-size:14.5px; outline:none; transition:.14s; }
+  textarea.finput { resize:vertical; min-height:44px; line-height:1.45; }
+  .finput:focus { border-color:var(--violet); box-shadow:0 0 0 3px var(--violet-soft); background:var(--frame); }
+  .editor-msg { min-height:18px; font-size:13px; }
+  .editor-msg .no { color:var(--danger); font-weight:650; }
+  .editor-actions { display:flex; gap:10px; justify-content:flex-end; }
+  .editor-actions .btn { min-width:118px; }
+
   /* ---------- Play ---------- */
   .game-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px; }
   .game-card { text-align:left; border:1px solid var(--line); background:var(--frame); border-radius:18px;
@@ -553,6 +610,14 @@
     .set-range input[type=range] { flex:1; width:auto; }
     .switch { align-self:flex-start; }
 
+    /* words */
+    .words-bar { gap:8px; }
+    .words-add { padding:11px 12px; }
+    .word-row { padding:11px 12px; gap:9px; }
+    .wr-btn { width:32px; height:32px; }
+    .editor-card { padding:16px 16px; gap:13px; }
+    .editor-actions .btn { flex:1; min-width:0; }
+
     /* overlays sit above the bottom bar */
     .toast { left:12px; right:12px; bottom:74px; max-width:none; }
   }
@@ -638,6 +703,7 @@ const api = {
 let SETTINGS = {};
 const todayStr = ()=> new Date().toISOString().slice(0,10);
 const shuffle = a=>{ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+const escHtml = s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 const I = {
   flame:`<svg class="icon" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/></svg>`,
@@ -672,6 +738,14 @@ Object.assign(I, {
   back:`<svg class="icon" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>`,
   enter:`<svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>`,
 });
+/* words (deck manager) icons */
+Object.assign(I, {
+  search:`<svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>`,
+  plus:`<svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>`,
+  pencil:`<svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,
+  trash:`<svg class="icon" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"/><path d="M10 11v6M14 11v6"/></svg>`,
+  x:`<svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>`,
+});
 const HERO_ART = `<svg viewBox="0 0 220 150" width="220" height="150" fill="none" aria-hidden="true">
   <circle cx="152" cy="44" r="27" fill="#F7B733"/><circle cx="152" cy="44" r="27" fill="#FBD277" opacity=".45"/>
   <g fill="#ffffff" opacity=".85"><ellipse cx="58" cy="38" rx="26" ry="13"/><ellipse cx="94" cy="45" rx="19" ry="10"/></g>
@@ -682,7 +756,14 @@ const HERO_ART = `<svg viewBox="0 0 220 150" width="220" height="150" fill="none
   <rect x="150" y="74" width="10" height="25" rx="2" fill="#E8654F"/>
 </svg>`;
 
-let DECK=[], STATE=null, keyHandler=null;
+let DECK=[], BUILTIN=[], STATE=null, keyHandler=null;
+// The shipped words.json is stored as {word,pos,definition,example,distractors};
+// the app works in a slightly shorter shape everywhere else.
+function mapWord(c){ return {word:c.word,pos:c.pos,def:c.definition,ex:c.example,distractors:(c.distractors||[]).slice()}; }
+// All deck edits go through here: swap in the new list, keep DECK pointed at it,
+// and persist. STATE.deck is a list, so the server's deep_merge replaces it
+// wholesale — add / edit / delete all round-trip cleanly.
+function commitDeck(list){ STATE.deck=list; DECK=STATE.deck; save(); }
 
 function ensureWord(w){ if(!STATE.words[w]) STATE.words[w]={box:1,seen:0,correct:0}; return STATE.words[w]; }
 function recordDay(){
@@ -711,12 +792,16 @@ function pickWeighted(){
 }
 function computeStats(){
   const words=STATE.words||{};
-  const mastered=Object.values(words).filter(w=>w.box>=5).length;
-  const learning=Object.keys(words).length;
-  const seen=Object.values(words).reduce((a,w)=>a+(w.seen||0),0);
-  const corr=Object.values(words).reduce((a,w)=>a+(w.correct||0),0);
+  // Count progress only for words still in the deck — a deleted or renamed word
+  // leaves its old STATE.words entry behind (deep_merge never prunes keys), and
+  // it shouldn't skew mastery, accuracy, or the box breakdown.
+  const recs=DECK.map(w=>words[w.word]).filter(Boolean);
+  const mastered=recs.filter(w=>w.box>=5).length;
+  const learning=recs.length;
+  const seen=recs.reduce((a,w)=>a+(w.seen||0),0);
+  const corr=recs.reduce((a,w)=>a+(w.correct||0),0);
   const acc=seen?Math.round(100*corr/seen):0;
-  const boxCounts=[1,2,3,4,5].map(b=>Object.values(words).filter(w=>w.box===b).length);
+  const boxCounts=[1,2,3,4,5].map(b=>recs.filter(w=>w.box===b).length);
   const days=[]; for(let i=6;i>=0;i--){ const d=new Date(Date.now()-i*86400000).toISOString().slice(0,10);
     const h=(STATE.history||[]).find(e=>e.day===d); days.push({day:d,n:h?h.reviews:0}); }
   const masteryPct = DECK.length? mastered/DECK.length : 0;
@@ -730,10 +815,13 @@ function statCard(cls,icon,val,label){
 let cur=null, flipped=false;
 const LEARN_TABS = [
   { v:"practice", t:"Practice" },
+  { v:"words",    t:"Words" },
   { v:"games",    t:"Games" },
   { v:"progress", t:"Progress" },
 ];
 let learnTab = "practice";
+let wordsQuery = "";            // Words tab search text
+let wordsEdit  = null;          // null = list view; {mode:"add"|"edit", key} = editor
 function renderLearn(){
   const el=$("#learn");
   el.innerHTML=`
@@ -742,14 +830,16 @@ function renderLearn(){
     <div id="learnBody"></div>`;
   el.querySelectorAll("[data-lt]").forEach(b=>b.onclick=()=>{
     if(b.dataset.lt===learnTab) return;
-    learnTab=b.dataset.lt; renderLearn();
+    learnTab=b.dataset.lt; wordsEdit=null; persistNav(); renderLearn();
   });
   const body=$("#learnBody",el);
   if(learnTab==="practice") renderPractice(body);
+  else if(learnTab==="words") renderWords(body);
   else if(learnTab==="games") renderWordGames(body);
   else renderAnalytics(body);
 }
 function renderPractice(host){
+  if(!DECK.length){ host.innerHTML=deckEmptyCard("start practicing"); wireDeckEmpty(host); keyHandler=null; return; }
   cur=pickWeighted(); flipped=false;
   const s=computeStats(); const box=(STATE.words[cur.word]?.box)||1;
   host.innerHTML=`
@@ -787,8 +877,8 @@ function renderPractice(host){
       </aside>
     </div>`;
   const face=()=>{ $("#flash",host).innerHTML = flipped
-    ? `<span class="tag">${cur.pos}</span><div class="def">${cur.def}</div><div class="ex">“${cur.ex}”</div>`
-    : `<span class="eyebrow">tap to reveal</span><div class="word">${cur.word}</div><div class="pos">${cur.pos}</div>`; };
+    ? `${cur.pos?`<span class="tag">${escHtml(cur.pos)}</span>`:""}<div class="def">${escHtml(cur.def)}</div>${cur.ex?`<div class="ex">“${escHtml(cur.ex)}”</div>`:""}`
+    : `<span class="eyebrow">tap to reveal</span><div class="word">${escHtml(cur.word)}</div>${cur.pos?`<div class="pos">${escHtml(cur.pos)}</div>`:""}`; };
   face();
   const flip=()=>{ flipped=!flipped; face(); };
   $("#flash",host).onclick=flip;
@@ -806,6 +896,178 @@ function boxBars(boxCounts){
     <div class="box-row"><span class="name">Box ${i+1}</span>
       <span class="box-track"><span class="box-fill" style="width:${Math.round(100*n/max)}%;background:var(--box${i+1})"></span></span>
       <span class="box-n">${n}</span></div>`).join("");
+}
+
+/* ---------------- WORDS (deck manager) ----------------
+   One editable list of the user's vocabulary, seeded once from words.json.
+   Add / edit / delete all mutate STATE.deck through commitDeck(), which the
+   server persists by replacing the list wholesale. */
+function deckEmptyCard(what){
+  return `<div class="words-empty card">
+    <div class="we-ic">${I.book}</div>
+    <div class="we-t">No words yet</div>
+    <div class="we-s">Add a few words to your deck and you can ${what} here.</div>
+    <div class="we-actions"><button class="btn primary" id="deckGo">${I.plus} Go to Words</button></div>
+  </div>`;
+}
+function wireDeckEmpty(host){
+  const b=$("#deckGo",host);
+  if(b) b.onclick=()=>{ learnTab="words"; wordsEdit=null; persistNav(); renderLearn(); };
+}
+function refreshWords(){ const b=$("#learnBody"); if(b) renderWords(b); }
+
+function renderWords(host){
+  keyHandler=null;
+  // A stale edit target (word deleted while the editor was parked) falls back to the list.
+  if(wordsEdit){
+    if(wordsEdit.mode==="edit" && !DECK.some(w=>w.word.toLowerCase()===wordsEdit.key)) wordsEdit=null;
+    else { renderWordEditor(host); return; }
+  }
+  const total=DECK.length;
+  host.innerHTML=`
+    <div class="words-bar">
+      <div class="words-search">${I.search}
+        <input id="wSearch" class="wsearch-input" type="text" autocomplete="off"
+          placeholder="Search ${total} word${total===1?'':'s'}…" value="${escHtml(wordsQuery)}">
+      </div>
+      <button class="btn primary words-add" id="wAdd">${I.plus}<span>Add word</span></button>
+    </div>
+    <div id="wordsList"></div>`;
+  $("#wAdd",host).onclick=()=>openWordEditor("add");
+  const search=$("#wSearch",host);
+  search.oninput=()=>{ wordsQuery=search.value; paintWordsList(); };
+  paintWordsList($("#wordsList",host));
+}
+function wordsFiltered(){
+  const q=wordsQuery.trim().toLowerCase();
+  if(!q) return DECK.slice();
+  return DECK.filter(w=> w.word.toLowerCase().includes(q) || (w.def||"").toLowerCase().includes(q));
+}
+function paintWordsList(listEl){
+  listEl=listEl||$("#wordsList"); if(!listEl) return;
+  if(!DECK.length){
+    listEl.innerHTML=`<div class="words-empty card">
+      <div class="we-ic">${I.book}</div>
+      <div class="we-t">Your deck is empty</div>
+      <div class="we-s">Add your own words to practice, or bring back the starter pack.</div>
+      <div class="we-actions">
+        <button class="btn primary" id="wEmptyAdd">${I.plus} Add your first word</button>
+        <button class="btn ghost" id="wRestore">Restore starter words</button>
+      </div></div>`;
+    $("#wEmptyAdd",listEl).onclick=()=>openWordEditor("add");
+    $("#wRestore",listEl).onclick=restoreStarter;
+    return;
+  }
+  const list=wordsFiltered();
+  if(!list.length){ listEl.innerHTML=`<div class="words-none">No words match “${escHtml(wordsQuery.trim())}”.</div>`; return; }
+  listEl.innerHTML=`<div class="word-rows">${list.map(wordRow).join("")}</div>`;
+  listEl.querySelectorAll(".word-row").forEach(row=>{
+    const key=row.dataset.k;
+    row.querySelector('[data-act="edit"]').onclick=()=>openWordEditor("edit",key);
+    row.querySelector('[data-act="del"]').onclick=()=>armDelete(row,key);
+  });
+}
+function wordRow(w){
+  const prog=STATE.words[w.word], box=prog?prog.box:0;
+  const badge=box?`<span class="wr-box" title="Leitner box ${box} of 5">Box ${box}</span>`:"";
+  return `<div class="word-row" data-k="${escHtml(w.word.toLowerCase())}">
+    <div class="wr-main">
+      <div class="wr-top"><span class="wr-word">${escHtml(w.word)}</span>${w.pos?`<span class="wr-pos">${escHtml(w.pos)}</span>`:""}${badge}</div>
+      <div class="wr-def">${escHtml(w.def||"—")}</div>
+    </div>
+    <div class="wr-acts">
+      <button class="wr-btn" data-act="edit" title="Edit">${I.pencil}</button>
+      <button class="wr-btn danger" data-act="del" title="Delete">${I.trash}</button>
+    </div>
+  </div>`;
+}
+function armDelete(row,key){
+  row.classList.add("confirming");
+  const acts=row.querySelector(".wr-acts");
+  acts.innerHTML=`<span class="wr-confirm">Delete?</span>
+    <button class="wr-btn danger" data-c="yes" title="Confirm delete">${I.checkmini}</button>
+    <button class="wr-btn" data-c="no" title="Keep">${I.x}</button>`;
+  acts.querySelector('[data-c="yes"]').onclick=()=>deleteWord(key);
+  acts.querySelector('[data-c="no"]').onclick=()=>paintWordsList();
+}
+function deleteWord(key){
+  const idx=DECK.findIndex(w=>w.word.toLowerCase()===key);
+  if(idx<0){ paintWordsList(); return; }
+  const next=DECK.slice(); next.splice(idx,1);
+  commitDeck(next);      // progress in STATE.words is left as-is; computeStats ignores non-deck words
+  paintWordsList();
+}
+function restoreStarter(){
+  const have=new Set(DECK.map(w=>w.word.toLowerCase()));
+  const add=BUILTIN.filter(w=>!have.has(w.word.toLowerCase())).map(w=>({...w, distractors:(w.distractors||[]).slice()}));
+  if(add.length) commitDeck(DECK.concat(add));
+  refreshWords();
+}
+function openWordEditor(mode,key){ wordsEdit={mode, key:key||null}; refreshWords(); }
+function closeWordEditor(){ wordsEdit=null; refreshWords(); }
+const POS_LIST=["noun","verb","adjective","adverb","pronoun","preposition","conjunction","interjection","phrase","idiom"];
+function renderWordEditor(host){
+  keyHandler=null;
+  const editing=wordsEdit.mode==="edit";
+  const w=(editing?DECK.find(x=>x.word.toLowerCase()===wordsEdit.key):null) || {word:"",pos:"",def:"",ex:"",distractors:[]};
+  const ds=(w.distractors||[]).slice(0,3); while(ds.length<3) ds.push("");
+  host.innerHTML=`
+    <div class="editor-bar">
+      <button class="btn ghost arcade-back" id="wBack">${I.back}<span>Back</span></button>
+      <div class="arcade-title">${editing?"Edit word":"Add word"}</div>
+    </div>
+    <div class="card editor-card">
+      <label class="fld"><span class="fld-l">Word</span>
+        <input class="finput" id="fWord" type="text" autocomplete="off" placeholder="e.g. serendipity" value="${escHtml(w.word)}"></label>
+      <label class="fld"><span class="fld-l">Part of speech <em>optional</em></span>
+        <input class="finput" id="fPos" type="text" list="posList" autocomplete="off" placeholder="noun, verb, adjective…" value="${escHtml(w.pos||"")}">
+        <datalist id="posList">${POS_LIST.map(p=>`<option value="${p}">`).join("")}</datalist></label>
+      <label class="fld"><span class="fld-l">Definition</span>
+        <textarea class="finput" id="fDef" rows="2" placeholder="What it means">${escHtml(w.def||"")}</textarea></label>
+      <label class="fld"><span class="fld-l">Example <em>optional</em></span>
+        <textarea class="finput" id="fEx" rows="2" placeholder="A sentence using the word">${escHtml(w.ex||"")}</textarea></label>
+      <div class="fld"><span class="fld-l">Wrong answers <em>optional · shown as decoys in the Quiz</em></span>
+        <input class="finput" id="fD0" type="text" autocomplete="off" placeholder="A plausible wrong meaning" value="${escHtml(ds[0])}">
+        <input class="finput" id="fD1" type="text" autocomplete="off" placeholder="Another wrong meaning" value="${escHtml(ds[1])}">
+        <input class="finput" id="fD2" type="text" autocomplete="off" placeholder="One more" value="${escHtml(ds[2])}"></div>
+      <div class="editor-msg" id="fMsg"></div>
+      <div class="editor-actions">
+        <button class="btn ghost" id="fCancel">Cancel</button>
+        <button class="btn primary" id="fSave">${editing?"Save changes":"Add word"}</button>
+      </div>
+    </div>`;
+  $("#wBack",host).onclick=closeWordEditor;
+  $("#fCancel",host).onclick=closeWordEditor;
+  $("#fSave",host).onclick=()=>saveWordEditor(host);
+  const wf=$("#fWord",host);
+  wf.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); $("#fDef",host).focus(); } };
+  setTimeout(()=>wf.focus(),30);
+}
+function saveWordEditor(host){
+  const word=$("#fWord",host).value.trim();
+  const pos=$("#fPos",host).value.trim();
+  const def=$("#fDef",host).value.trim();
+  const ex=$("#fEx",host).value.trim();
+  const distractors=["fD0","fD1","fD2"].map(id=>$("#"+id,host).value.trim()).filter(Boolean);
+  const msg=$("#fMsg",host);
+  const fail=t=>{ msg.innerHTML=`<span class="no">${escHtml(t)}</span>`; };
+  if(!word){ fail("Enter a word."); $("#fWord",host).focus(); return; }
+  if(!def){ fail("Enter a definition."); $("#fDef",host).focus(); return; }
+  const key=word.toLowerCase(), editing=wordsEdit.mode==="edit", origKey=editing?wordsEdit.key:null;
+  if(DECK.some(w=>w.word.toLowerCase()===key && w.word.toLowerCase()!==origKey)){ fail(`“${word}” is already in your deck.`); return; }
+  const rec={word,pos,def,ex,distractors};
+  const next=DECK.slice();
+  if(editing){
+    const idx=next.findIndex(w=>w.word.toLowerCase()===origKey);
+    if(idx<0) next.push(rec);
+    else {
+      const oldWord=next[idx].word;
+      next[idx]=rec;
+      if(oldWord!==word && STATE.words[oldWord] && !STATE.words[word]) STATE.words[word]=STATE.words[oldWord];
+    }
+  } else next.push(rec);
+  commitDeck(next);
+  wordsEdit=null; refreshWords();
 }
 
 /* ---------------- PLAY ---------------- */
@@ -858,6 +1120,7 @@ function gameCard(g, activeId){
 // Word games — lives inside Learn ▸ Games.
 function renderWordGames(host){
   arcadeFrame=null;
+  if(!DECK.length){ host.innerHTML=deckEmptyCard("play the word games"); wireDeckEmpty(host); keyHandler=null; return; }
   host.innerHTML=`
     <div class="game-grid">${WORD_GAMES.map(g=>gameCard(g,activeWordGame)).join("")}</div>
     <div class="card" id="wgame"></div>`;
@@ -892,7 +1155,7 @@ function renderGame(){
         </div>
         <div class="arcade-stage" id="arcadeHost"></div>
       </div>`;
-    $("#arcadeBack",el).onclick=()=>{ postArcade({type:"interlude:save"}); arcadePlaying=null; renderGame(); };
+    $("#arcadeBack",el).onclick=()=>{ postArcade({type:"interlude:save"}); arcadePlaying=null; persistNav(); renderGame(); };
     keyHandler=null;
     mountArcade($("#arcadeHost",el),g);
     return;
@@ -902,7 +1165,7 @@ function renderGame(){
   el.innerHTML=`
     <h2 class="sec-title">Arcade</h2>
     <div class="game-grid arcade-grid">${ARCADE_GAMES.map(arcadeCard).join("")}</div>`;
-  el.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{ arcadePlaying=b.dataset.g; renderGame(); });
+  el.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{ arcadePlaying=b.dataset.g; persistNav(); renderGame(); });
   keyHandler=null;
 }
 function mountArcade(host,g){
@@ -921,26 +1184,35 @@ function bumpGame(id,key,val){
 
 function mountQuiz(host){
   const c=pickWeighted();
-  const opts=shuffle([{t:c.def,ok:true}, ...c.distractors.map(d=>({t:d,ok:false}))]);
+  // Custom words may carry fewer than three decoys — top up from other words'
+  // definitions so the quiz always offers a real multiple choice.
+  let ds=(c.distractors||[]).slice();
+  if(ds.length<3){
+    for(const d of shuffle(DECK)){
+      if(ds.length>=3) break;
+      if(d.word!==c.word && d.def && d.def!==c.def && !ds.includes(d.def)) ds.push(d.def);
+    }
+  }
+  const opts=shuffle([{t:c.def,ok:true}, ...ds.slice(0,3).map(d=>({t:d,ok:false}))]);
   host.innerHTML=`
       <div class="muted">What does this word mean?</div>
-      <div class="prompt-word">${c.word}</div>
-      <div class="pos" style="font-style:italic;color:var(--ink-3);margin-bottom:14px">${c.pos}</div>
+      <div class="prompt-word">${escHtml(c.word)}</div>
+      <div class="pos" style="font-style:italic;color:var(--ink-3);margin-bottom:14px">${escHtml(c.pos||"")}</div>
       <div id="opts"></div>
       <div class="msg" id="qmsg"></div>`;
   const box=$("#opts",host);
   opts.forEach((o,i)=>{
     const b=document.createElement("button"); b.className="opt";
-    b.innerHTML=`<span class="key">${i+1}</span><span>${o.t}</span>`;
+    b.innerHTML=`<span class="key">${i+1}</span><span>${escHtml(o.t)}</span>`;
     b.onclick=()=>choose(o,b); box.appendChild(b);
   });
   function choose(o,b){
     box.querySelectorAll(".opt").forEach(x=>x.disabled=true);
-    if(o.ok){ b.classList.add("correct"); $("#qmsg",host).innerHTML=`<span class="ok">Correct.</span> ${c.word} — ${c.def}`;
+    if(o.ok){ b.classList.add("correct"); $("#qmsg",host).innerHTML=`<span class="ok">Correct.</span> ${escHtml(c.word)} — ${escHtml(c.def)}`;
       review(c.word,true); bumpGame("quiz","wins"); }
     else { b.classList.add("wrong");
       box.querySelectorAll(".opt").forEach(x=>{ if(x.textContent.includes(c.def)) x.classList.add("correct"); });
-      $("#qmsg",host).innerHTML=`<span class="no">Not quite.</span> ${c.word} — ${c.def}`; review(c.word,false); }
+      $("#qmsg",host).innerHTML=`<span class="no">Not quite.</span> ${escHtml(c.word)} — ${escHtml(c.def)}`; review(c.word,false); }
     keyHandler=null; setTimeout(()=>mountQuiz(host), o.ok?950:1900);
   }
   keyHandler=(e)=>{ const n=parseInt(e.key); if(n>=1&&n<=opts.length){ const b=box.children[n-1]; if(b&&!b.disabled) b.click(); } };
@@ -951,8 +1223,8 @@ function mountScramble(host){
   let letters=shuffle(c.word.split("")); if(letters.join("")===c.word&&c.word.length>1)[letters[0],letters[1]]=[letters[1],letters[0]];
   host.innerHTML=`<div class="center">
       <div class="muted">Unscramble the word</div>
-      <div class="letters">${letters.map(l=>`<span class="lchip">${l}</span>`).join("")}</div>
-      <p class="def" style="font-size:16px;color:var(--ink-2);max-width:520px;margin:0 auto 14px">${c.def}</p>
+      <div class="letters">${letters.map(l=>`<span class="lchip">${escHtml(l)}</span>`).join("")}</div>
+      <p class="def" style="font-size:16px;color:var(--ink-2);max-width:520px;margin:0 auto 14px">${escHtml(c.def)}</p>
       <input class="text" id="sinput" placeholder="type your answer" autocomplete="off" style="max-width:360px;margin:0 auto" />
       <div class="msg" id="smsg"></div>
       <div class="row" style="max-width:360px;margin:14px auto 0">
@@ -977,14 +1249,14 @@ function mountHangman(host){
     const shown=word.split("").map(ch=>ch===" "?"·":(guessed.has(ch)?ch:"_")).join(" ");
     const won=word.split("").every(ch=>ch===" "||guessed.has(ch)); const lost=wrong>=MAX;
     host.innerHTML=`<div class="center">
-      <div class="muted">Guess the word · <em>${c.def}</em></div>
-      <div style="font-size:30px;font-weight:750;letter-spacing:5px;margin:20px 0 8px">${shown}</div>
+      <div class="muted">Guess the word · <em>${escHtml(c.def)}</em></div>
+      <div style="font-size:30px;font-weight:750;letter-spacing:5px;margin:20px 0 8px">${escHtml(shown)}</div>
       <div class="dots">${Array.from({length:MAX},(_,i)=>`<span class="life ${i<wrong?'gone':''}"></span>`).join("")}</div>
       <div class="keyrow" id="keys">${"abcdefghijklmnopqrstuvwxyz".split("").map(l=>
         `<button class="key-btn" data-l="${l}" ${guessed.has(l)?"disabled":""}>${l}</button>`).join("")}</div>
       <div class="msg center" id="hmsg"></div></div>`;
     if(won){ $("#hmsg",host).innerHTML=`<span class="ok">Nice — you got it.</span>`; review(c.word,true); bumpGame("hangman","wins"); setTimeout(()=>mountHangman(host),1400); return; }
-    if(lost){ $("#hmsg",host).innerHTML=`<span class="no">The word was “${word}”.</span>`; review(c.word,false); setTimeout(()=>mountHangman(host),2000); return; }
+    if(lost){ $("#hmsg",host).innerHTML=`<span class="no">The word was “${escHtml(word)}”.</span>`; review(c.word,false); setTimeout(()=>mountHangman(host),2000); return; }
     host.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{ const l=b.dataset.l; guessed.add(l); if(!word.includes(l)) wrong++; draw(); });
   };
   draw();
@@ -1005,7 +1277,7 @@ function mountWordle(host){
   };
   const render=()=>{
     host.innerHTML=`<div class="center">
-      <div class="muted">Guess the ${N}-letter word · <em>${c.def}</em></div>
+      <div class="muted">Guess the ${N}-letter word · <em>${escHtml(c.def)}</em></div>
       <div id="grid" style="margin:18px 0"></div>
       <input class="text" id="winput" maxlength="${N}" placeholder="${N} letters, then Enter" autocomplete="off" ${done?"disabled":""} style="max-width:340px;margin:0 auto"/>
       <div class="msg" id="wmsg"></div></div>`;
@@ -1181,13 +1453,6 @@ function renderSettings(){
       <div class="set-cap">Appearance &amp; behavior</div>
       <div class="set-row">
         <div class="set-info">
-          <div class="set-label">Open to</div>
-          <div class="set-desc">Which tab Interlude shows first.</div>
-        </div>
-        <div class="set-ctl">${seg("segView",[{v:"learn",t:"Learn"},{v:"game",t:"Arcade"},{v:"social",t:"Social"}],s.defaultView)}</div>
-      </div>
-      <div class="set-row">
-        <div class="set-info">
           <div class="set-label">Sound cues</div>
           <div class="set-desc">A distinct sound for each state — done, waiting for you, needs permission, and errors.</div>
         </div>
@@ -1217,7 +1482,6 @@ function renderSettings(){
 
   wireSeg("segOpenOn", v=>{ saveSetting({openOn:v}); $("#rowScope").classList.toggle("set-dim", v==="prompt"); });
   wireSeg("segScope",  v=>saveSetting({toolScope:v}));
-  wireSeg("segView",   v=>saveSetting({defaultView:v}));
 
   const rng=$("#rngDelay"), val=$("#valDelay");
   rng.oninput=()=>{ val.textContent=`${rng.value}s`; };
@@ -1282,7 +1546,7 @@ function renderSocial(){
       <button class="btn ghost spop" id="sPop" title="Open in a separate window">${I.arrowup} Pop out</button>
     </div>
     <div class="social-stage" id="socialStage"></div>`;
-  $("#social").querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{ socialSite=b.dataset.s; renderSocial(); });
+  $("#social").querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{ socialSite=b.dataset.s; persistNav(); renderSocial(); });
   $("#sPop").onclick=()=>{ if(socialSite) api.openSocial(socialSite); };
   paintStage();
 }
@@ -1323,11 +1587,31 @@ window.__ilSocial = function(){
 
 /* ---------------- nav + status ---------------- */
 const RENDER={ learn:renderLearn, game:renderGame, social:renderSocial, settings:renderSettings };
+let curView="learn";
+// Remember where the user is — top-level view plus its inner state — so reopening
+// the window lands exactly where they left off (see restoreNav in init).
+function persistNav(){
+  if(!STATE) return;
+  STATE.nav={ view:curView, learnTab, social:socialSite, arcade:arcadePlaying };
+  save();
+}
+// Restore the last-visited location (view + inner state) from STATE.nav. Each
+// piece is validated so a stale/unknown value just falls back to a safe default.
+function restoreNav(){
+  const nav=(STATE && STATE.nav) || {};
+  if(LEARN_TABS.some(t=>t.v===nav.learnTab)) learnTab=nav.learnTab;
+  if(SOCIAL.some(s=>s.id===nav.social)) socialSite=nav.social;
+  if(ARCADE_GAMES.some(g=>g.id===nav.arcade)) arcadePlaying=nav.arcade;   // switchView clears this unless we land on Arcade
+  const view=["learn","game","social","settings"].includes(nav.view)?nav.view:"learn";
+  switchView(view);
+}
 function switchView(v){
   if(v!=="game"){ postArcade({type:"interlude:save"}); arcadePlaying=null; }  // save + reset to launcher when leaving Arcade
+  curView=v;
   document.querySelectorAll(".rico").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
   document.querySelectorAll(".view").forEach(sec=>sec.classList.toggle("active",sec.id===v));
   RENDER[v]();
+  persistNav();
 }
 document.querySelectorAll(".rico").forEach(b=>b.onclick=()=>switchView(b.dataset.view));
 document.addEventListener("keydown",e=>{ if(keyHandler && !/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) keyHandler(e); });
@@ -1512,14 +1796,18 @@ async function poll(){
 }
 
 async function init(){
-  DECK=(await api.deck()).map(c=>({word:c.word,pos:c.pos,def:c.definition,ex:c.example,distractors:c.distractors||[]}));
+  BUILTIN=(await api.deck()).map(mapWord);
   STATE=await api.state();
   STATE.words=STATE.words||{}; STATE.games=STATE.games||{}; STATE.arcade=STATE.arcade||{}; STATE.history=STATE.history||[];
+  // Seed the editable deck from the shipped starter pack once. Guarded by a
+  // flag so clearing every word doesn't silently re-seed on the next open.
+  if(!STATE.deckSeeded || !Array.isArray(STATE.deck)){
+    STATE.deck=BUILTIN.map(w=>({...w})); STATE.deckSeeded=true; save();
+  }
+  DECK=STATE.deck;
   SETTINGS=await api.settings();
   applyThemeIcon(); updateChrome(); wireSnooze();
-  const legacy={ play:"game", progress:"learn" };
-  const dv=legacy[SETTINGS.defaultView]||SETTINGS.defaultView;
-  switchView(["learn","game","social"].includes(dv)?dv:"learn");
+  restoreNav();
   poll(); setInterval(poll,800);
 }
 init();

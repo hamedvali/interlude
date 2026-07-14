@@ -37,7 +37,7 @@ import urllib.request
 
 # Fallback only; the canonical version lives in the VERSION file next to this
 # script (so it ships under app/ and updates with the rest of the app).
-__version__ = "1.9.0"
+__version__ = "1.10.0"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RUN_DIR = os.path.join(BASE_DIR, ".run")
@@ -78,7 +78,6 @@ SETTINGS_DEFAULTS = {
     "openDelay": OPEN_DELAY,
     "width": WINDOW_W,
     "height": WINDOW_H,
-    "defaultView": "learn",
     "sound": False,
 }
 # Tools that count as Claude "doing something" when toolScope == "work".
