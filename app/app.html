@@ -250,6 +250,14 @@
     text-align:center; gap:12px; cursor:pointer; user-select:none; }
   .flash .eyebrow { font-size:12px; color:var(--ink-3); letter-spacing:.04em; }
   .flash .word { font-size:38px; font-weight:750; letter-spacing:-.02em; color:var(--ink-1); }
+  .word-line { display:flex; align-items:center; justify-content:center; gap:13px; }
+  .say { width:38px; height:38px; border-radius:50%; border:1px solid var(--line); background:var(--surface-2);
+    color:var(--violet); display:grid; place-items:center; cursor:pointer; transition:.14s; flex:0 0 auto; }
+  .say svg { width:19px; height:19px; }
+  .say:hover { background:var(--violet-soft); border-color:transparent; }
+  .say:active { transform:scale(.93); }
+  .say.speaking { background:var(--violet); color:#fff; border-color:transparent; animation:sayPulse 1s ease-in-out infinite; }
+  @keyframes sayPulse { 0%,100%{ box-shadow:0 0 0 0 var(--violet-soft); } 50%{ box-shadow:0 0 0 6px var(--violet-soft); } }
   .flash .pos { font-style:italic; color:var(--ink-3); font-size:14px; }
   .flash .def { font-size:20px; line-height:1.45; color:var(--ink-1); max-width:460px; }
   .flash .ex { font-size:14px; color:var(--ink-2); font-style:italic; max-width:460px; }
@@ -704,6 +712,19 @@ let SETTINGS = {};
 const todayStr = ()=> new Date().toISOString().slice(0,10);
 const shuffle = a=>{ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
 const escHtml = s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// Speak a word aloud with the OS's built-in voices (Web Speech API — no network,
+// works offline in the WKWebView). `btn` is lit while speaking, if provided.
+function speak(text, btn){
+  try{
+    const synth=window.speechSynthesis;
+    if(!synth || !text) return;
+    synth.cancel();                       // stop any in-flight utterance first
+    const u=new SpeechSynthesisUtterance(String(text));
+    u.lang="en-US"; u.rate=.9;
+    if(btn){ btn.classList.add("speaking"); u.onend=u.onerror=()=>btn.classList.remove("speaking"); }
+    synth.speak(u);
+  }catch(e){}
+}
 
 const I = {
   flame:`<svg class="icon" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/></svg>`,
@@ -721,6 +742,7 @@ const I = {
   checkmini:`<svg class="icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>`,
   arrowup:`<svg class="icon" viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>`,
   window:`<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 8.5h18"/><circle cx="6.4" cy="6.2" r=".7" fill="currentColor" stroke="none"/></svg>`,
+  volume:`<svg class="icon" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.7 6a9 9 0 0 1 0 12"/></svg>`,
 };
 /* arcade game icons */
 Object.assign(I, {
@@ -863,7 +885,7 @@ function renderPractice(host){
             <button class="btn ghost" id="miss">Again</button>
             <button class="btn primary" id="got">I knew it</button>
           </div>
-          <div class="fc-hint"><span class="kbd">Space</span> flip · <span class="kbd">1</span> Again · <span class="kbd">2</span> I knew it</div>
+          <div class="fc-hint"><span class="kbd">Space</span> flip · <span class="kbd">1</span> Again · <span class="kbd">2</span> I knew it · <span class="kbd">P</span> say</div>
         </div>
       </div>
       <aside class="col-side">
@@ -876,9 +898,15 @@ function renderPractice(host){
         </div>
       </aside>
     </div>`;
-  const face=()=>{ $("#flash",host).innerHTML = flipped
-    ? `${cur.pos?`<span class="tag">${escHtml(cur.pos)}</span>`:""}<div class="def">${escHtml(cur.def)}</div>${cur.ex?`<div class="ex">“${escHtml(cur.ex)}”</div>`:""}`
-    : `<span class="eyebrow">tap to reveal</span><div class="word">${escHtml(cur.word)}</div>${cur.pos?`<div class="pos">${escHtml(cur.pos)}</div>`:""}`; };
+  const say=`<button class="say" id="sayBtn" type="button" title="Hear pronunciation" aria-label="Hear pronunciation">${I.volume}</button>`;
+  const face=()=>{
+    const el=$("#flash",host);
+    el.innerHTML = flipped
+      ? `${cur.pos?`<span class="tag">${escHtml(cur.pos)}</span>`:""}<div class="def">${escHtml(cur.def)}</div>${cur.ex?`<div class="ex">“${escHtml(cur.ex)}”</div>`:""}`
+      : `<span class="eyebrow">tap to reveal</span><div class="word-line"><span class="word">${escHtml(cur.word)}</span>${say}</div>${cur.pos?`<div class="pos">${escHtml(cur.pos)}</div>`:""}`;
+    const sb=$("#sayBtn",el);
+    if(sb) sb.onclick=(e)=>{ e.stopPropagation(); speak(cur.word,sb); };   // don't flip the card
+  };
   face();
   const flip=()=>{ flipped=!flipped; face(); };
   $("#flash",host).onclick=flip;
@@ -888,6 +916,7 @@ function renderPractice(host){
     if(e.key===" "||e.key==="Enter"){ e.preventDefault(); flip(); }
     else if(e.key==="1"){ review(cur.word,false); renderPractice(host); }
     else if(e.key==="2"){ review(cur.word,true);  renderPractice(host); }
+    else if(e.key==="p"||e.key==="P"){ e.preventDefault(); speak(cur.word,$("#sayBtn",host)); }
   };
 }
 function boxBars(boxCounts){
