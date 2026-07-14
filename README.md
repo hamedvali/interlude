@@ -1,13 +1,16 @@
 <div align="center">
 
-# 🎴 Interlude
+<img src="app/icon-512.png" alt="Interlude" width="88" />
 
-### Turn Claude's thinking time into learning time.
+# Interlude
+
+### Turn Claude's thinking time into your time.
 
 **Interlude** is a tiny, no-typing companion for [Claude Code](https://claude.com/claude-code).
-While Claude works, a little window quietly pops up so you can learn English words and play quick
-word games. The moment Claude finishes — or needs you — it counts down and closes itself, out of
-your way exactly when it's time to read or reply.
+While Claude works, a slim window quietly slides up so you can learn a word, play a quick game, or
+just breathe — and browse a little. The moment Claude finishes, needs your input, or hits a wall, it
+tells you *which* — with its own colour, sound, and closing behaviour — and gets out of your way
+exactly when it's time to read or reply.
 
 <br />
 
@@ -15,12 +18,12 @@ your way exactly when it's time to read or reply.
 [![Made with Python](https://img.shields.io/badge/python-3-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-zero-2ea44f)](#-how-it-works)
 [![No Dock icon](https://img.shields.io/badge/dock%20icon-none-7C4DEB)](#-how-it-works)
-[![Version](https://img.shields.io/badge/version-1.3.0-7C4DEB)](#)
+[![Version](https://img.shields.io/badge/version-1.11.0-7C4DEB)](#)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 
 <br />
 
-<img src="docs/learn.png" alt="Interlude — the Learn view: a flashcard while Claude is working" width="820" />
+<img src="docs/learn.png" alt="Interlude — a flashcard surfaces while Claude is working" width="300" />
 
 </div>
 
@@ -28,13 +31,16 @@ your way exactly when it's time to read or reply.
 
 ## ✨ Highlights
 
-- 🧠 **Learn while you wait** — spaced-repetition flashcards (Leitner boxes) surface the words you're about to forget.
-- 🎮 **Word games + Arcade** — four quick word games (Definition Quiz, Word Scramble, Hangman, Vocab Wordle) plus an **Arcade** section with a vendored, MIT-licensed [2048](https://github.com/gabrielecirulli/2048) that **saves and resumes mid-game** — stop in the middle and pick up right where you left off.
+- 🧠 **Learn while you wait** — spaced-repetition flashcards (Leitner boxes 1–5) surface the words you're about to forget, and speak them aloud on demand.
+- 🎮 **Word games + Arcade** — four quick word games (Definition Quiz, Word Scramble, Hangman, Vocab Wordle) plus a full-screen **Arcade** with a vendored, MIT-licensed [2048](https://github.com/gabrielecirulli/2048) that **saves and resumes mid-game** — stop halfway, pick up right where you left off.
+- 📱 **Social, in the window** — a quick pick of Instagram · X · TikTok, opened right inside the popup for a genuinely mindless glance while you wait.
+- 🎛️ **State-aware attention routing** — Interlude sees *why* Claude stopped and reacts differently: **done** (violet, counts down and closes), **needs input** (amber, closes so you can reply), **permission** (red, flashes then closes), **error** (red, stays open with the last line). Optional matching macOS chimes.
+- 🕶️ **Snooze / focus** — one click (or `interlude snooze 1h|3h|8h`) mutes the popup and sounds, then auto-resumes.
 - 📈 **Progress you can see** — streaks, mastery gauge, review history, and per-box charts.
-- 🪄 **Zero friction** — appears on its own while Claude thinks, closes on its own when Claude's done.
+- 🪄 **Zero friction** — appears on its own while Claude thinks, closes on its own when Claude's done, and reopens right where you left it.
 - 🕶️ **No Dock icon, no menu bar** — a native WKWebView popup, not a browser tab or PWA.
 - 🔒 **Fully local** — no accounts, no telemetry, no dependencies. Everything runs on `127.0.0.1`.
-- 🌗 **Light & dark** — follows a clean violet theme, day or night.
+- 🌗 **Light & dark** — a clean violet theme, day or night.
 
 <br />
 
@@ -59,23 +65,43 @@ Interlude appears. ✨
 
 <table>
   <tr>
-    <td width="50%" valign="top">
-      <img src="docs/progress.png" alt="Progress view with mastery gauge and review history (dark mode)" /><br />
-      <b>📊 Progress</b> — mastery gauge, review history, and your Leitner boxes at a glance.
+    <td width="33%" valign="top">
+      <img src="docs/learn.png" alt="Learn ▸ Practice — a flashcard" /><br />
+      <b>🎴 Practice</b> — one card at a time, scheduled by how well you know it. Press <b>P</b> to hear it.
     </td>
-    <td width="50%" valign="top">
-      <img src="docs/play.png" alt="Play view showing the four word games" /><br />
-      <b>🎮 Play</b> — pick from four fast word games between prompts.
+    <td width="33%" valign="top">
+      <img src="docs/words.png" alt="Learn ▸ Words — the deck manager" /><br />
+      <b>📚 Words</b> — a deck manager to browse, search, and curate the words you're learning.
+    </td>
+    <td width="33%" valign="top">
+      <img src="docs/games.png" alt="Learn ▸ Games — four word games" /><br />
+      <b>🧩 Games</b> — four fast word games: Quiz, Scramble, Hangman, Wordle.
     </td>
   </tr>
   <tr>
-    <td width="50%" valign="top">
-      <img src="docs/learn.png" alt="Learn view with a flashcard" /><br />
-      <b>🎴 Learn</b> — one card at a time, scheduled by how well you know it.
+    <td width="33%" valign="top">
+      <img src="docs/progress.png" alt="Learn ▸ Progress — mastery gauge and history" /><br />
+      <b>📊 Progress</b> — mastery gauge, streaks, review history, Leitner boxes at a glance.
     </td>
-    <td width="50%" valign="top">
+    <td width="33%" valign="top">
+      <img src="docs/arcade.png" alt="Arcade — 2048 running in the popup" /><br />
+      <b>🎮 Arcade</b> — a full-section 2048 that saves and resumes mid-game.
+    </td>
+    <td width="33%" valign="top">
+      <img src="docs/social.png" alt="Social — Instagram, X, TikTok picker" /><br />
+      <b>📱 Social</b> — Instagram · X · TikTok, right inside the window.
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top">
+      <img src="docs/settings.png" alt="Settings" /><br />
+      <b>⚙️ Settings</b> — sound, snooze, and the knobs that shape how Interlude behaves.
+    </td>
+    <td width="33%" valign="top">
       <img src="docs/closing.png" alt="The closing countdown modal" /><br />
-      <b>👋 Auto-close</b> — a gentle "closing in 3…2…1" when Claude is ready.
+      <b>👋 Auto-close</b> — a gentle, state-coloured "closing in 3…2…1" when Claude's ready.
+    </td>
+    <td width="33%" valign="top">
     </td>
   </tr>
 </table>
@@ -86,21 +112,41 @@ Interlude appears. ✨
 
 ## ⚙️ How it works
 
-Interlude installs four **global** [Claude Code hooks](https://docs.claude.com/en/docs/claude-code/hooks)
+Interlude installs six **global** [Claude Code hooks](https://docs.claude.com/en/docs/claude-code/hooks)
 into `~/.claude/settings.json`. They call a small local control script that manages a
 zero-dependency Python web server and a native macOS popup window:
 
-| Hook event         | When it fires             | What Interlude does                                                |
-|--------------------|---------------------------|-------------------------------------------------------------------|
-| `UserPromptSubmit` | You send a prompt         | ⏳ Arms a timer; opens the window if Claude is still busy after ~3s |
-| `PostToolUse`      | Claude runs a tool        | 🔁 Keeps the window up (and to the front) while work continues     |
-| `Stop`             | Claude finishes replying  | 👋 Shows a "closing in 3…2…1" modal, then closes                   |
-| `Notification`     | Claude needs your input   | 🚪 Closes the window so you can respond                            |
+| Hook event            | When it fires                  | What Interlude does                                                    |
+|-----------------------|--------------------------------|------------------------------------------------------------------------|
+| `UserPromptSubmit`    | You send a prompt              | ⏳ Arms a timer; opens the window if Claude is still busy after ~3s      |
+| `PreToolUse`          | Claude is about to run a tool  | 🔁 Keeps the window up and to the front while work continues            |
+| `PostToolUse`         | Claude finishes a tool         | 🔁 Marks progress; resets the "is it stuck?" watchdog                   |
+| `PostToolUseFailure`  | A tool errors out             | ⚠️ Flags the **error** state so the window can stay open with the reason |
+| `Stop`                | Claude finishes replying       | 👋 Shows a state-coloured "closing in 3…2…1" modal, then closes         |
+| `Notification`        | Claude needs input / permission| 🚪 Routes to the **needs-input** or **permission** state and steps aside |
 
 The window is a native **WKWebView** popup rendered by `osascript` with an *accessory* activation
 policy — so it shows on screen but adds **no Dock icon and no menu bar**. It auto-closes by tracking
-its own process, and re-surfaces itself on the next prompt if it's already open. Everything runs on
-`127.0.0.1` — nothing leaves your machine.
+its own process, re-surfaces on the next prompt if already open, and restores whatever view you were
+last on. Everything runs on `127.0.0.1` — nothing leaves your machine.
+
+<br />
+
+## 🎛️ Attention routing & sound
+
+Interlude is the only tool that already *owns the window*, so it turns that window into a status
+display. Every hook maps to a distinct state — legible from across the room:
+
+| State            | Accent | Window does                                  | Optional chime |
+|------------------|--------|----------------------------------------------|----------------|
+| ✅ **Done**       | violet | counts down and closes                       | soft ding      |
+| ✋ **Needs input**| amber  | closes so you can reply                       | mid boop       |
+| 🔐 **Permission** | red    | flashes, then closes so you can approve       | double tap     |
+| ⚠️ **Error/stuck**| red    | **stays open**, pins the last line of output | low buzz       |
+
+Sound is **opt-in** (default off — it respects alert fatigue). Turn it on with `interlude sound on`
+or from **Settings**. It rides the existing status poll, so there's no extra network traffic, and it
+plays built-in macOS system chimes via `afplay` — zero new dependencies.
 
 <br />
 
@@ -129,12 +175,16 @@ interlude update on    # re-enable
 ## 🎛️ Controls
 
 ```bash
-interlude off          # pause Interlude (stops opening the window)
-interlude on           # resume
-interlude status       # show version, server, and window state as JSON
-interlude update       # check for and apply a new version now
-interlude stop-server  # stop the background web server
-interlude version      # print the version
+interlude off             # pause Interlude (stops opening the window)
+interlude on              # resume
+interlude snooze 1h       # mute popup + sounds for 1h (also 3h, 8h), then auto-resume
+interlude snooze off      # end the snooze now
+interlude sound on        # enable state-aware chimes (off by default)
+interlude sound off       # silence them
+interlude status          # show version, server, window, and attention state as JSON
+interlude update          # check for and apply a new version now
+interlude stop-server     # stop the background web server
+interlude version         # print the version
 ```
 
 If `~/.local/bin` isn't on your `PATH`, run it directly:
@@ -144,9 +194,10 @@ If `~/.local/bin` isn't on your `PATH`, run it directly:
 
 ## 🎨 Customize
 
-- **📝 Words** — edit `~/.interlude/words.json` (a list of `{word, meaning, …}`).
+- **📝 Words** — edit `~/.interlude/words.json` (a list of `{word, meaning, …}`), or curate the deck live from **Learn ▸ Words**.
 - **⏱️ Open delay** — set `INTERLUDE_DELAY` (seconds) before the window appears (default `3`).
-- **📐 Window size** — set `INTERLUDE_WIDTH` / `INTERLUDE_HEIGHT` (default `1240`×`840`).
+- **📐 Window size** — set `INTERLUDE_WIDTH` / `INTERLUDE_HEIGHT` (default `350`×`800` — a slim companion strip).
+- **🔊 Sound** — `interlude sound on|off`, or the toggle in **Settings** (default off).
 - **🔌 Port** — set `INTERLUDE_PORT` (default `47615`) if it clashes with something.
 
 Changes to hooks or env take effect after you restart Claude Code.
@@ -176,17 +227,18 @@ bash install.sh --local
 
 The app lives in `app/`:
 
-| File            | Role                                                          |
-|-----------------|--------------------------------------------------------------|
-| `interlude.py`  | Hook controller — decides when to open/close the window      |
-| `webview.js`    | The native WKWebView popup, run via `osascript`              |
-| `server.py`     | Zero-dependency stdlib web server                            |
-| `app.html`      | The Learn / Play / Progress UI                               |
-| `games/`        | Vendored MIT arcade games + the save/resume bridge & theme   |
+| File            | Role                                                              |
+|-----------------|-------------------------------------------------------------------|
+| `interlude.py`  | Hook controller — decides when to open/close and routes state     |
+| `webview.js`    | The native WKWebView popup, run via `osascript`                   |
+| `server.py`     | Zero-dependency stdlib web server                                 |
+| `app.html`      | The single-page UI — Learn / Arcade / Social / Settings           |
+| `games/`        | Vendored MIT arcade games + the save/resume bridge & theme        |
 
-Arcade games live in `app/games/<id>/` with their upstream `LICENSE` kept verbatim. A tiny
-shared `games/_bridge.js` mirrors each game's `localStorage` to the server so play resumes
-mid-game, and `games/_theme.css` blends them with the Interlude theme. See
+The UI has a four-item nav rail — **Learn** (with Practice / Words / Games / Progress sub-tabs),
+**Arcade**, **Social**, and **Settings**. Arcade games live in `app/games/<id>/` with their upstream
+`LICENSE` kept verbatim. A tiny shared `games/_bridge.js` mirrors each game's `localStorage` to the
+server so play resumes mid-game, and `games/_theme.css` blends them with the Interlude theme. See
 [`app/games/CREDITS.md`](app/games/CREDITS.md) for attributions and how to add more.
 
 `INTERLUDE_HOME` overrides the install location — handy for isolated testing.
