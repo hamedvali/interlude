@@ -259,10 +259,19 @@
   .say.speaking { background:var(--violet); color:#fff; border-color:transparent; animation:sayPulse 1s ease-in-out infinite; }
   @keyframes sayPulse { 0%,100%{ box-shadow:0 0 0 0 var(--violet-soft); } 50%{ box-shadow:0 0 0 6px var(--violet-soft); } }
   .flash .pos { font-style:italic; color:var(--ink-3); font-size:14px; }
+  .fc-meta { display:flex; align-items:center; justify-content:center; gap:9px; flex-wrap:wrap; }
   .flash .def { font-size:20px; line-height:1.45; color:var(--ink-1); max-width:460px; }
   .flash .ex { font-size:14px; color:var(--ink-2); font-style:italic; max-width:460px; }
   .tag { display:inline-block; font-size:11px; padding:3px 12px; border-radius:999px;
     background:var(--violet-soft); color:var(--violet); font-weight:600; }
+  /* language pill — shown wherever a word is displayed (flashcard, games, deck) */
+  .lang-badge { display:inline-flex; align-items:center; gap:5px; vertical-align:middle;
+    font-size:10.5px; font-weight:700; letter-spacing:.02em; padding:2px 9px; border-radius:999px;
+    background:var(--violet-soft); color:var(--violet); white-space:nowrap; }
+  .lang-badge::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; flex:0 0 auto; }
+  .lang-en { background:var(--violet-soft); color:var(--violet); }
+  .lang-nl { background:var(--coral-soft);  color:var(--coral); }
+  .lang-de { background:var(--yellow-soft); color:var(--yellow); }
   .fc-actions { display:flex; gap:12px; margin-top:6px; } .fc-actions .btn { flex:1; }
   .fc-hint { text-align:center; margin-top:14px; color:var(--ink-3); font-size:12px; }
 
@@ -430,6 +439,7 @@
 
   /* game internals */
   .prompt-word { font-size:28px; font-weight:750; letter-spacing:-.02em; margin:2px 0; }
+  .prompt-meta { display:flex; align-items:center; justify-content:center; gap:9px; flex-wrap:wrap; margin-bottom:14px; }
   .opt { display:flex; align-items:center; gap:12px; width:100%; text-align:left; margin:8px 0;
     padding:14px 16px; border:1px solid var(--line); border-radius:13px; background:var(--surface-2);
     color:var(--ink-1); font:inherit; font-size:14.5px; cursor:pointer; transition:.14s; }
@@ -842,6 +852,10 @@ let DECK=[], BUILTIN=[], STATE=null, keyHandler=null;
 // The shipped words.json is stored as {word,pos,definition,example,distractors};
 // the app works in a slightly shorter shape everywhere else.
 function mapWord(c){ return {word:c.word,pos:c.pos,def:c.definition,ex:c.example,distractors:(c.distractors||[]).slice(),lang:c.lang||""}; }
+// The language a word belongs to (untagged words are the English starter deck).
+const LANG_NAME = { en:"English", nl:"Dutch", de:"German" };
+// A small pill naming the word's language — shown everywhere a word appears.
+function langBadge(lang){ const c=LANG_NAME[lang]?lang:"en"; return `<span class="lang-badge lang-${c}">${LANG_NAME[c]}</span>`; }
 // All deck edits go through here: swap in the new list, keep DECK pointed at it,
 // and persist. STATE.deck is a list, so the server's deep_merge replaces it
 // wholesale — add / edit / delete all round-trip cleanly.
@@ -964,7 +978,7 @@ function renderPractice(host){
     const el=$("#flash",host);
     el.innerHTML = flipped
       ? `${cur.pos?`<span class="tag">${escHtml(cur.pos)}</span>`:""}<div class="def">${escHtml(cur.def)}</div>${cur.ex?`<div class="ex">“${escHtml(cur.ex)}”</div>`:""}`
-      : `<span class="eyebrow">tap to reveal</span><div class="word-line"><span class="word">${escHtml(cur.word)}</span>${say}</div>${cur.pos?`<div class="pos">${escHtml(cur.pos)}</div>`:""}`;
+      : `<span class="eyebrow">tap to reveal</span><div class="word-line"><span class="word">${escHtml(cur.word)}</span>${say}</div><div class="fc-meta">${cur.pos?`<span class="pos">${escHtml(cur.pos)}</span>`:""}${langBadge(cur.lang)}</div>`;
     const sb=$("#sayBtn",el);
     if(sb) sb.onclick=(e)=>{ e.stopPropagation(); speak(cur.word,sb,cur.lang); };   // don't flip the card
   };
@@ -1067,7 +1081,7 @@ function wordRow(w){
   const badge=box?`<span class="wr-box" title="Leitner box ${box} of 5">Box ${box}</span>`:"";
   return `<div class="word-row" data-k="${escHtml(w.word.toLowerCase())}">
     <div class="wr-main">
-      <div class="wr-top"><span class="wr-word">${escHtml(w.word)}</span>${w.pos?`<span class="wr-pos">${escHtml(w.pos)}</span>`:""}${badge}</div>
+      <div class="wr-top"><span class="wr-word">${escHtml(w.word)}</span>${langBadge(w.lang)}${w.pos?`<span class="wr-pos">${escHtml(w.pos)}</span>`:""}${badge}</div>
       <div class="wr-def">${escHtml(w.def||"—")}</div>
     </div>
     <div class="wr-acts">
@@ -1154,8 +1168,8 @@ function openWordEditor(mode,key){ wordsEdit={mode, key:key||null}; refreshWords
 function closeWordEditor(){ wordsEdit=null; refreshWords(); }
 const POS_LIST=["noun","verb","adjective","adverb","pronoun","preposition","conjunction","interjection","phrase","idiom"];
 // Languages a word can be tagged with, driving how the Practice card pronounces
-// it. Matches the built-in packs; the value is the short code stored on the word.
-const LANGS=[{v:"en",t:"English"},{v:"nl",t:"Dutch"},{v:"de",t:"German"}];
+// it and the language badge. Matches the built-in packs (see LANG_NAME).
+const LANGS=Object.keys(LANG_NAME).map(v=>({v, t:LANG_NAME[v]}));
 function renderWordEditor(host){
   keyHandler=null;
   const editing=wordsEdit.mode==="edit";
@@ -1351,7 +1365,7 @@ function mountQuiz(host){
   host.innerHTML=`
       <div class="muted">What does this word mean?</div>
       <div class="prompt-word">${escHtml(c.word)}</div>
-      <div class="pos" style="font-style:italic;color:var(--ink-3);margin-bottom:14px">${escHtml(c.pos||"")}</div>
+      <div class="prompt-meta">${c.pos?`<span class="pos" style="font-style:italic;color:var(--ink-3)">${escHtml(c.pos)}</span>`:""}${langBadge(c.lang)}</div>
       <div id="opts"></div>
       <div class="msg" id="qmsg"></div>`;
   const box=$("#opts",host);
@@ -1376,7 +1390,7 @@ function mountScramble(host){
   const c=pickWeighted();
   let letters=shuffle(c.word.split("")); if(letters.join("")===c.word&&c.word.length>1)[letters[0],letters[1]]=[letters[1],letters[0]];
   host.innerHTML=`<div class="center">
-      <div class="muted">Unscramble the word</div>
+      <div class="muted">Unscramble the word ${langBadge(c.lang)}</div>
       <div class="letters">${letters.map(l=>`<span class="lchip">${escHtml(l)}</span>`).join("")}</div>
       <p class="def" style="font-size:16px;color:var(--ink-2);max-width:520px;margin:0 auto 14px">${escHtml(c.def)}</p>
       <input class="text" id="sinput" placeholder="type your answer" autocomplete="off" style="max-width:360px;margin:0 auto" />
@@ -1403,7 +1417,7 @@ function mountHangman(host){
     const shown=word.split("").map(ch=>ch===" "?"·":(guessed.has(ch)?ch:"_")).join(" ");
     const won=word.split("").every(ch=>ch===" "||guessed.has(ch)); const lost=wrong>=MAX;
     host.innerHTML=`<div class="center">
-      <div class="muted">Guess the word · <em>${escHtml(c.def)}</em></div>
+      <div class="muted">Guess the word ${langBadge(c.lang)} · <em>${escHtml(c.def)}</em></div>
       <div style="font-size:30px;font-weight:750;letter-spacing:5px;margin:20px 0 8px">${escHtml(shown)}</div>
       <div class="dots">${Array.from({length:MAX},(_,i)=>`<span class="life ${i<wrong?'gone':''}"></span>`).join("")}</div>
       <div class="keyrow" id="keys">${"abcdefghijklmnopqrstuvwxyz".split("").map(l=>
@@ -1431,7 +1445,7 @@ function mountWordle(host){
   };
   const render=()=>{
     host.innerHTML=`<div class="center">
-      <div class="muted">Guess the ${N}-letter word · <em>${escHtml(c.def)}</em></div>
+      <div class="muted">Guess the ${N}-letter word ${langBadge(c.lang)} · <em>${escHtml(c.def)}</em></div>
       <div id="grid" style="margin:18px 0"></div>
       <input class="text" id="winput" maxlength="${N}" placeholder="${N} letters, then Enter" autocomplete="off" ${done?"disabled":""} style="max-width:340px;margin:0 auto"/>
       <div class="msg" id="wmsg"></div></div>`;
