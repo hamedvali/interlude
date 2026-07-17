@@ -43,9 +43,22 @@ APP_FILE = os.path.join(BASE_DIR, "app.html")
 VERSION_FILE = os.path.join(BASE_DIR, "VERSION")
 SETTINGS_JSON = os.path.join(DATA_DIR, "settings.json")
 DECK_FILE = os.path.join(BASE_DIR, "words.json")
+PACKS_DIR = os.path.join(BASE_DIR, "packs")
 STATE_FILE = os.path.join(DATA_DIR, "state.json")
 GAMES_DIR = os.path.join(BASE_DIR, "games")
 BROWSER_JS = os.path.join(BASE_DIR, "browser.js")
+
+# Built-in word packs the Words ▸ Packs browser can add into the deck. English
+# reuses the shipped starter (words.json) so first-run seeding is unchanged; the
+# rest live under app/packs/. Ids are whitelisted here, so /api/pack never opens
+# an arbitrary path.
+PACKS = [
+    {"id": "english", "name": "English Vocabulary",
+     "note": "The starter deck — everyday advanced English words with example sentences.",
+     "file": DECK_FILE},
+    {"id": "dutch",   "name": "Dutch",   "file": os.path.join(PACKS_DIR, "dutch.json")},
+    {"id": "german",  "name": "German",  "file": os.path.join(PACKS_DIR, "german.json")},
+]
 
 DEFAULT_PORT = int(os.environ.get("INTERLUDE_PORT", "47615"))
 
@@ -258,6 +271,31 @@ def read_json(path, default):
         return default
 
 
+def _find_pack(pack_id):
+    for p in PACKS:
+        if p["id"] == pack_id:
+            return p
+    return None
+
+
+def _pack_payload(entry, with_words=False):
+    """Summarize a pack (id/name/note/count), optionally with its full word list.
+    A name/note set on the registry entry wins (lets us give the shared starter
+    deck a friendly label); otherwise the file's meta.name / meta.note is used."""
+    data = read_json(entry["file"], {})
+    meta = data.get("meta", {}) if isinstance(data, dict) else {}
+    words = data.get("words", []) if isinstance(data, dict) else []
+    out = {
+        "id": entry["id"],
+        "name": entry.get("name") or meta.get("name") or entry["id"].title(),
+        "note": entry.get("note") or meta.get("note", ""),
+        "count": len(words),
+    }
+    if with_words:
+        out["words"] = words
+    return out
+
+
 def write_state(state):
     os.makedirs(DATA_DIR, exist_ok=True)
     tmp = STATE_FILE + ".tmp"
@@ -406,6 +444,15 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, read_settings())
         elif path == "/api/deck":
             self._send(200, read_json(DECK_FILE, {"words": []}))
+        elif path == "/api/packs":
+            self._send(200, [_pack_payload(p) for p in PACKS])
+        elif path == "/api/pack":
+            q = parse_qs(urlparse(self.path).query)
+            entry = _find_pack((q.get("id") or [""])[0])
+            if entry is None:
+                self._send(404, {"error": "unknown pack"})
+            else:
+                self._send(200, _pack_payload(entry, with_words=True))
         elif path == "/api/state":
             state = read_json(STATE_FILE, None)
             if state is None:
