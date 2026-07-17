@@ -733,13 +733,33 @@ const shuffle = a=>{ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.flo
 const escHtml = s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 // Speak a word aloud with the OS's built-in voices (Web Speech API — no network,
 // works offline in the WKWebView). `btn` is lit while speaking, if provided.
-function speak(text, btn){
+// `lang` is a short pack code (en/nl/de …): a Dutch word is read by a Dutch
+// voice when one is installed, otherwise the engine's best match for that
+// language. The voice list loads async, so we cache it and refresh on change.
+const SPEAK_LANG = { en:"en-US", nl:"nl-NL", de:"de-DE" };
+let VOICES = [];
+function loadVoices(){ try{ VOICES = window.speechSynthesis.getVoices() || []; }catch(e){ VOICES = []; } }
+if(window.speechSynthesis){
+  loadVoices();
+  try{ window.speechSynthesis.onvoiceschanged = loadVoices; }catch(e){}
+}
+function pickVoice(bcp47){
+  if(!VOICES.length) loadVoices();
+  const tag=bcp47.toLowerCase(), primary=tag.split("-")[0];
+  return VOICES.find(v=>(v.lang||"").toLowerCase()===tag)                       // exact (nl-NL)
+      || VOICES.find(v=>(v.lang||"").toLowerCase().split("-")[0]===primary)     // primary (nl)
+      || null;
+}
+function speak(text, btn, lang){
   try{
     const synth=window.speechSynthesis;
     if(!synth || !text) return;
     synth.cancel();                       // stop any in-flight utterance first
     const u=new SpeechSynthesisUtterance(String(text));
-    u.lang="en-US"; u.rate=.9;
+    u.lang = SPEAK_LANG[lang] || lang || "en-US";
+    u.rate = .9;
+    const v = pickVoice(u.lang);
+    if(v) u.voice = v;                     // force the matching voice when we have one
     if(btn){ btn.classList.add("speaking"); u.onend=u.onerror=()=>btn.classList.remove("speaking"); }
     synth.speak(u);
   }catch(e){}
@@ -801,7 +821,7 @@ const HERO_ART = `<svg viewBox="0 0 220 150" width="220" height="150" fill="none
 let DECK=[], BUILTIN=[], STATE=null, keyHandler=null;
 // The shipped words.json is stored as {word,pos,definition,example,distractors};
 // the app works in a slightly shorter shape everywhere else.
-function mapWord(c){ return {word:c.word,pos:c.pos,def:c.definition,ex:c.example,distractors:(c.distractors||[]).slice()}; }
+function mapWord(c){ return {word:c.word,pos:c.pos,def:c.definition,ex:c.example,distractors:(c.distractors||[]).slice(),lang:c.lang||""}; }
 // All deck edits go through here: swap in the new list, keep DECK pointed at it,
 // and persist. STATE.deck is a list, so the server's deep_merge replaces it
 // wholesale — add / edit / delete all round-trip cleanly.
@@ -926,7 +946,7 @@ function renderPractice(host){
       ? `${cur.pos?`<span class="tag">${escHtml(cur.pos)}</span>`:""}<div class="def">${escHtml(cur.def)}</div>${cur.ex?`<div class="ex">“${escHtml(cur.ex)}”</div>`:""}`
       : `<span class="eyebrow">tap to reveal</span><div class="word-line"><span class="word">${escHtml(cur.word)}</span>${say}</div>${cur.pos?`<div class="pos">${escHtml(cur.pos)}</div>`:""}`;
     const sb=$("#sayBtn",el);
-    if(sb) sb.onclick=(e)=>{ e.stopPropagation(); speak(cur.word,sb); };   // don't flip the card
+    if(sb) sb.onclick=(e)=>{ e.stopPropagation(); speak(cur.word,sb,cur.lang); };   // don't flip the card
   };
   face();
   const flip=()=>{ flipped=!flipped; face(); };
@@ -937,7 +957,7 @@ function renderPractice(host){
     if(e.key===" "||e.key==="Enter"){ e.preventDefault(); flip(); }
     else if(e.key==="1"){ review(cur.word,false); renderPractice(host); }
     else if(e.key==="2"){ review(cur.word,true);  renderPractice(host); }
-    else if(e.key==="p"||e.key==="P"){ e.preventDefault(); speak(cur.word,$("#sayBtn",host)); }
+    else if(e.key==="p"||e.key==="P"){ e.preventDefault(); speak(cur.word,$("#sayBtn",host),cur.lang); }
   };
 }
 function boxBars(boxCounts){
@@ -1098,9 +1118,10 @@ async function addPack(p,card){
   const full=await api.pack(p.id);
   const words=(full&&full.words)||[];
   if(!words.length){ msg.innerHTML=`<span class="no">Couldn’t load this pack.</span>`; return; }
+  const lang=full.lang||"";               // every word in a pack shares its language
   const have=new Set(DECK.map(w=>w.word.toLowerCase()));
   const add=[];
-  words.map(mapWord).forEach(w=>{ const k=w.word.toLowerCase(); if(!have.has(k)){ have.add(k); add.push(w); } });
+  words.map(mapWord).forEach(w=>{ if(lang) w.lang=lang; const k=w.word.toLowerCase(); if(!have.has(k)){ have.add(k); add.push(w); } });
   if(add.length){
     commitDeck(DECK.concat(add));
     const dup=words.length-add.length;
@@ -1112,11 +1133,15 @@ async function addPack(p,card){
 function openWordEditor(mode,key){ wordsEdit={mode, key:key||null}; refreshWords(); }
 function closeWordEditor(){ wordsEdit=null; refreshWords(); }
 const POS_LIST=["noun","verb","adjective","adverb","pronoun","preposition","conjunction","interjection","phrase","idiom"];
+// Languages a word can be tagged with, driving how the Practice card pronounces
+// it. Matches the built-in packs; the value is the short code stored on the word.
+const LANGS=[{v:"en",t:"English"},{v:"nl",t:"Dutch"},{v:"de",t:"German"}];
 function renderWordEditor(host){
   keyHandler=null;
   const editing=wordsEdit.mode==="edit";
-  const w=(editing?DECK.find(x=>x.word.toLowerCase()===wordsEdit.key):null) || {word:"",pos:"",def:"",ex:"",distractors:[]};
+  const w=(editing?DECK.find(x=>x.word.toLowerCase()===wordsEdit.key):null) || {word:"",pos:"",def:"",ex:"",distractors:[],lang:""};
   const ds=(w.distractors||[]).slice(0,3); while(ds.length<3) ds.push("");
+  const curLang=w.lang||"en";
   host.innerHTML=`
     <div class="editor-bar">
       <button class="btn ghost arcade-back" id="wBack">${I.back}<span>Back</span></button>
@@ -1128,6 +1153,8 @@ function renderWordEditor(host){
       <label class="fld"><span class="fld-l">Part of speech <em>optional</em></span>
         <input class="finput" id="fPos" type="text" list="posList" autocomplete="off" placeholder="noun, verb, adjective…" value="${escHtml(w.pos||"")}">
         <datalist id="posList">${POS_LIST.map(p=>`<option value="${p}">`).join("")}</datalist></label>
+      <label class="fld"><span class="fld-l">Language <em>read aloud in this voice</em></span>
+        <select class="finput" id="fLang">${LANGS.map(l=>`<option value="${l.v}"${l.v===curLang?" selected":""}>${l.t}</option>`).join("")}</select></label>
       <label class="fld"><span class="fld-l">Definition</span>
         <textarea class="finput" id="fDef" rows="2" placeholder="What it means">${escHtml(w.def||"")}</textarea></label>
       <label class="fld"><span class="fld-l">Example <em>optional</em></span>
@@ -1154,6 +1181,7 @@ function saveWordEditor(host){
   const pos=$("#fPos",host).value.trim();
   const def=$("#fDef",host).value.trim();
   const ex=$("#fEx",host).value.trim();
+  const lang=($("#fLang",host)||{}).value||"en";
   const distractors=["fD0","fD1","fD2"].map(id=>$("#"+id,host).value.trim()).filter(Boolean);
   const msg=$("#fMsg",host);
   const fail=t=>{ msg.innerHTML=`<span class="no">${escHtml(t)}</span>`; };
@@ -1161,7 +1189,7 @@ function saveWordEditor(host){
   if(!def){ fail("Enter a definition."); $("#fDef",host).focus(); return; }
   const key=word.toLowerCase(), editing=wordsEdit.mode==="edit", origKey=editing?wordsEdit.key:null;
   if(DECK.some(w=>w.word.toLowerCase()===key && w.word.toLowerCase()!==origKey)){ fail(`“${word}” is already in your deck.`); return; }
-  const rec={word,pos,def,ex,distractors};
+  const rec={word,pos,def,ex,distractors,lang};
   const next=DECK.slice();
   if(editing){
     const idx=next.findIndex(w=>w.word.toLowerCase()===origKey);

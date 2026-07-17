@@ -18,7 +18,7 @@ exactly when it's time to read or reply.
 [![Made with Python](https://img.shields.io/badge/python-3-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-zero-2ea44f)](#-how-it-works)
 [![No Dock icon](https://img.shields.io/badge/dock%20icon-none-7C4DEB)](#-how-it-works)
-[![Version](https://img.shields.io/badge/version-1.14.0-7C4DEB)](#)
+[![Version](https://img.shields.io/badge/version-1.15.0-7C4DEB)](#)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 
 <br />
@@ -87,7 +87,7 @@ streak. Pick one, though — installing both registers the hooks twice.
     </td>
     <td width="33%" valign="top">
       <img src="docs/words.png" alt="Learn ▸ Words — the deck manager" /><br />
-      <b>📚 Words</b> — a deck manager to browse, search, and curate the words you're learning, with built-in language packs (English · Dutch · German) you can add in a tap.
+      <b>📚 Words</b> — a deck manager to browse, search, and curate the words you're learning, with built-in language packs (English · Dutch · German) you can add in a tap — each word read aloud in its own language.
     </td>
     <td width="33%" valign="top">
       <img src="docs/games.png" alt="Learn ▸ Games — four word games" /><br />

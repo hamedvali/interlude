@@ -55,11 +55,11 @@ BROWSER_JS = os.path.join(BASE_DIR, "browser.js")
 # rest live under app/packs/. Ids are whitelisted here, so /api/pack never opens
 # an arbitrary path.
 PACKS = [
-    {"id": "english", "name": "English Vocabulary",
+    {"id": "english", "name": "English Vocabulary", "lang": "en",
      "note": "The starter deck — everyday advanced English words with example sentences.",
      "file": DECK_FILE},
-    {"id": "dutch",   "name": "Dutch",   "file": os.path.join(PACKS_DIR, "dutch.json")},
-    {"id": "german",  "name": "German",  "file": os.path.join(PACKS_DIR, "german.json")},
+    {"id": "dutch",   "name": "Dutch",  "lang": "nl", "file": os.path.join(PACKS_DIR, "dutch.json")},
+    {"id": "german",  "name": "German", "lang": "de", "file": os.path.join(PACKS_DIR, "german.json")},
 ]
 
 DEFAULT_PORT = int(os.environ.get("INTERLUDE_PORT", "47615"))
@@ -291,6 +291,7 @@ def _pack_payload(entry, with_words=False):
         "id": entry["id"],
         "name": entry.get("name") or meta.get("name") or entry["id"].title(),
         "note": entry.get("note") or meta.get("note", ""),
+        "lang": meta.get("lang") or entry.get("lang") or "en",
         "count": len(words),
     }
     if with_words:

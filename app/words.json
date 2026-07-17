@@ -1,6 +1,7 @@
 {
   "meta": {
     "name": "Starter English Deck",
+    "lang": "en",
     "note": "Add your own words here. Each entry: word, pos, definition, example, distractors (3 plausible-but-wrong meanings used by the quiz game)."
   },
   "words": [
