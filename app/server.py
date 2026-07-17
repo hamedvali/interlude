@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -42,6 +43,7 @@ SNOOZE_FILE = os.path.join(RUN_DIR, "snooze")   # epoch-ms deadline while the ap
 APP_FILE = os.path.join(BASE_DIR, "app.html")
 VERSION_FILE = os.path.join(BASE_DIR, "VERSION")
 SETTINGS_JSON = os.path.join(DATA_DIR, "settings.json")
+INTERLUDE_PY = os.path.join(BASE_DIR, "interlude.py")
 DECK_FILE = os.path.join(BASE_DIR, "words.json")
 PACKS_DIR = os.path.join(BASE_DIR, "packs")
 STATE_FILE = os.path.join(DATA_DIR, "state.json")
@@ -390,6 +392,23 @@ def open_social(site):
         return {"ok": False, "error": "cannot open"}
 
 
+def trigger_update_check():
+    """Fire off an update check, detached. The app calls this when its window
+    opens (replacing the old throttled background check). interlude.py's
+    `_update-run` honors the auto-update opt-out and a file lock, so this is
+    safe to call on every open — overlapping runs are ignored."""
+    if not os.path.exists(INTERLUDE_PY):
+        return {"ok": False, "error": "updater unavailable"}
+    try:
+        subprocess.Popen(
+            [sys.executable, INTERLUDE_PY, "_update-run"],
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL, start_new_session=True, cwd=BASE_DIR)
+        return {"ok": True}
+    except OSError:
+        return {"ok": False, "error": "cannot start updater"}
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):  # silence request logging
         pass
@@ -532,6 +551,11 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 pass
             self._send(200, {"ok": True})
+        elif path == "/api/check-update":
+            # Fired by the app when its window opens: kick off a detached
+            # update check. The result lands in update.json and rides the
+            # existing /api/status poll to the update toast.
+            self._send(200, trigger_update_check())
         elif path == "/api/quit":
             self._send(200, {"ok": True, "bye": True})
             threading.Thread(target=self.server.shutdown, daemon=True).start()

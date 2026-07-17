@@ -721,6 +721,7 @@ const api = {
   async save(s){ try{ await fetch("/api/state",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(s)}); }catch{} },
   async keep(gen){ try{ await fetch("/api/keep",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({gen})}); }catch{} },
   async ackUpdate(){ try{ await fetch("/api/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ack:true})}); }catch{} },
+  async checkUpdate(){ try{ await fetch("/api/check-update",{method:"POST"}); }catch{} },
   async settings(){ try{ return await (await fetch("/api/settings")).json(); }catch{ return {}; } },
   async saveSettings(patch){ try{ return await (await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(patch)})).json(); }catch{ return null; } },
   async openSocial(site){ try{ return await (await fetch("/api/social/open?site="+encodeURIComponent(site))).json(); }catch{ return null; } },
@@ -1913,6 +1914,7 @@ async function init(){
   SETTINGS=await api.settings();
   applyThemeIcon(); updateChrome(); wireSnooze();
   restoreNav();
+  api.checkUpdate();   // check for a new version each time the app opens
   poll(); setInterval(poll,800);
 }
 init();

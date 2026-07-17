@@ -128,8 +128,6 @@ ATTENTION_LINES = {
 # --- auto-update settings (same source install.sh fetches from) ---
 UPDATE_REPO = os.environ.get("INTERLUDE_REPO", "hamedvali/interlude")
 UPDATE_REF = os.environ.get("INTERLUDE_REF", "main")
-# how often to check, in seconds (default 6h); checks are throttled per this
-UPDATE_INTERVAL = float(os.environ.get("INTERLUDE_UPDATE_INTERVAL", str(6 * 3600)))
 CLAUDE_DIR = os.environ.get("CLAUDE_CONFIG_DIR", os.path.join(os.path.expanduser("~"), ".claude"))
 SETTINGS_FILE = os.path.join(CLAUDE_DIR, "settings.json")
 
@@ -820,21 +818,6 @@ def do_update_run(force=False):
         lock.close()
 
 
-def maybe_check_update():
-    """Called from on_prompt: throttled, opt-out-aware, spawns a detached check."""
-    try:
-        if update_disabled():
-            return
-        now = int(time.time() * 1000)
-        up = read_update()
-        if now - int(up.get("checkedAt", 0)) < UPDATE_INTERVAL * 1000:
-            return
-        write_update(up.get("phase", "idle"), checkedAt=now)  # claim this check window
-        spawn_detached([sys.executable, __file__, "_update-run"])
-    except Exception:
-        pass
-
-
 # ---------- hook entry points ----------
 def _arm_watch(gen):
     """Spawn a delayed opener for this generation, unless one's already covering it."""
@@ -860,7 +843,8 @@ def on_prompt():
     # so a pure text explanation never opens the window.
     if load_settings().get("openOn") in ("prompt", "both"):
         _arm_watch(gen)
-    maybe_check_update()  # throttled, opt-out-aware, detached — never blocks the hook
+    # Update checks no longer run here — the app fires one when its window opens
+    # (POST /api/check-update → `_update-run`), so we don't poll in the background.
 
 
 def on_pretool():
@@ -1122,6 +1106,11 @@ def apply_hooks_cmd():
 
 
 def update_run_cmd():
+    # The app triggers this on open (via /api/check-update); honor the same
+    # opt-out the old throttled check did, so a plugin install or `update off`
+    # never self-updates.
+    if update_disabled():
+        return
     do_update_run(False)
 
 
