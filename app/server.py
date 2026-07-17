@@ -13,8 +13,9 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlencode, urlparse
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -104,6 +105,15 @@ MIME = {
     ".map": "application/json", ".txt": "text/plain; charset=utf-8",
     ".webmanifest": "application/manifest+json",
 }
+
+# Text-to-speech: we proxy Google Translate's TTS (natural voices, free, no key)
+# so the app gets clearer pronunciation than the OS speech-synthesis voices, and
+# so the request carries a proper User-Agent without tripping the browser's CORS.
+# Maps our short word-language codes to Google's `tl` codes.
+TTS_LANGS = {"en": "en", "nl": "nl", "de": "de"}
+_TTS_CACHE = {}            # (tl\x00text) -> mp3 bytes; words repeat a lot in practice
+_TTS_CACHE_MAX = 300
+_tts_lock = threading.Lock()
 
 DEFAULT_STATE = {
     "words": {},        # word -> {"box": 1, "seen": 0, "correct": 0}
@@ -446,6 +456,32 @@ class Handler(BaseHTTPRequestHandler):
         except OSError:
             self._send(404, {"error": "not found"})
 
+    def _serve_tts(self, text, lang):
+        """Fetch (or return cached) MP3 pronunciation for one word/phrase."""
+        text = (text or "").strip()[:200]
+        if not text:
+            self._send(400, {"error": "no text"})
+            return
+        tl = TTS_LANGS.get((lang or "en").lower(), "en")
+        key = tl + "\x00" + text
+        with _tts_lock:
+            data = _TTS_CACHE.get(key)
+        if data is None:
+            url = "https://translate.google.com/translate_tts?" + urlencode(
+                {"ie": "UTF-8", "q": text, "tl": tl, "client": "tw-ob"})
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            try:
+                with urllib.request.urlopen(req, timeout=6) as r:
+                    data = r.read()
+            except Exception:
+                self._send(502, {"error": "tts unavailable"})  # app falls back to OS voice
+                return
+            with _tts_lock:
+                if len(_TTS_CACHE) >= _TTS_CACHE_MAX:
+                    _TTS_CACHE.clear()   # simple bounded cache: reset when full
+                _TTS_CACHE[key] = data
+        self._send(200, data, "audio/mpeg")
+
     def do_GET(self):
         path = self.path.split("?", 1)[0]
         if path in ("/", "/app.html", "/index.html"):
@@ -482,6 +518,9 @@ class Handler(BaseHTTPRequestHandler):
             q = parse_qs(urlparse(self.path).query)
             site = (q.get("site") or [""])[0]
             self._send(200, open_social(site))
+        elif path == "/api/tts":
+            q = parse_qs(urlparse(self.path).query)
+            self._serve_tts((q.get("text") or [""])[0], (q.get("lang") or ["en"])[0])
         else:
             self._send(404, {"error": "not found"})
 

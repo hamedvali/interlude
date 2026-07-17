@@ -731,11 +731,31 @@ let SETTINGS = {};
 const todayStr = ()=> new Date().toISOString().slice(0,10);
 const shuffle = a=>{ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
 const escHtml = s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-// Speak a word aloud with the OS's built-in voices (Web Speech API — no network,
-// works offline in the WKWebView). `btn` is lit while speaking, if provided.
-// `lang` is a short pack code (en/nl/de …): a Dutch word is read by a Dutch
-// voice when one is installed, otherwise the engine's best match for that
-// language. The voice list loads async, so we cache it and refresh on change.
+// Say a word aloud. We prefer the clearer Google Translate voice, streamed as
+// MP3 through our own /api/tts proxy (no CORS, proper User-Agent, server-cached).
+// `lang` is a short pack code (en/nl/de). If the network/proxy is unavailable we
+// fall back to the OS speech-synthesis voice (speakLocal), so it still works
+// offline. `btn` is lit while it plays, if provided.
+let curAudio = null;
+function speak(text, btn, lang){
+  if(!text) return;
+  const code = lang || "en";
+  const lit = on => { if(btn) btn.classList.toggle("speaking", on); };
+  try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){}
+  try{ if(curAudio){ curAudio.pause(); curAudio=null; } }catch(e){}
+  let handled=false;
+  const fallback = ()=>{ if(handled) return; handled=true; lit(false); speakLocal(text, btn, code); };
+  try{
+    const a = new Audio(`/api/tts?lang=${encodeURIComponent(code)}&text=${encodeURIComponent(text)}`);
+    curAudio = a;
+    lit(true);
+    a.onended = ()=>{ handled=true; lit(false); if(curAudio===a) curAudio=null; };
+    a.onerror = fallback;
+    a.play().catch(fallback);   // autoplay blocked / load failed -> OS voice
+  }catch(e){ fallback(); }
+}
+// Offline fallback: the OS's built-in voices (Web Speech API). A Dutch word is
+// read by a Dutch voice when one is installed, else the engine's best match.
 const SPEAK_LANG = { en:"en-US", nl:"nl-NL", de:"de-DE" };
 let VOICES = [];
 function loadVoices(){ try{ VOICES = window.speechSynthesis.getVoices() || []; }catch(e){ VOICES = []; } }
@@ -750,7 +770,7 @@ function pickVoice(bcp47){
       || VOICES.find(v=>(v.lang||"").toLowerCase().split("-")[0]===primary)     // primary (nl)
       || null;
 }
-function speak(text, btn, lang){
+function speakLocal(text, btn, lang){
   try{
     const synth=window.speechSynthesis;
     if(!synth || !text) return;
