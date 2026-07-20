@@ -284,8 +284,6 @@
   .say.say-lg svg { width:28px; height:28px; }
   .cloze-sent { font-size:21px; line-height:1.6; color:var(--ink-1); max-width:520px; margin:18px auto 10px; }
   .cloze-blank { color:var(--violet); font-weight:750; letter-spacing:2px; }
-  .cloze-hint { font-size:15px; color:var(--ink-2); max-width:480px; margin:0 auto 14px; }
-  .recall-def { font-size:22px; font-weight:650; line-height:1.4; color:var(--ink-1); max-width:520px; margin:16px auto 8px; }
   .flash .pos { font-style:italic; color:var(--ink-3); font-size:14px; }
   .fc-meta { display:flex; align-items:center; justify-content:center; gap:9px; flex-wrap:wrap; }
   .flash .def { font-size:20px; line-height:1.45; color:var(--ink-1); max-width:460px; }
@@ -480,9 +478,16 @@
   .social-empty .se-s { font-size:13px; color:var(--ink-3); max-width:360px; line-height:1.5; }
   .social-empty .btn { margin-top:6px; }
 
-  /* game internals */
-  .prompt-word { font-size:28px; font-weight:750; letter-spacing:-.02em; margin:2px 0; }
-  .prompt-meta { display:flex; align-items:center; justify-content:center; gap:9px; flex-wrap:wrap; margin-bottom:14px; }
+  /* game internals — shared layout system across all word games */
+  .game-eyebrow { font-size:11.5px; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--ink-3); margin:2px 0 14px; }
+  .game-prompt { font-size:26px; font-weight:750; letter-spacing:-.02em; color:var(--ink-1); margin:2px 0; }
+  .game-prompt.text { font-size:20px; font-weight:600; letter-spacing:0; line-height:1.5; max-width:520px; margin:2px auto; }
+  .game-clue { font-size:14.5px; color:var(--ink-2); line-height:1.5; max-width:480px; margin:10px auto 0; }
+  .game-clue em { font-style:italic; }
+  .game-meta { display:flex; align-items:center; justify-content:center; gap:9px; flex-wrap:wrap; margin:12px 0 16px; }
+  .game-actions { display:flex; gap:10px; max-width:360px; margin:18px auto 0; }
+  .game-actions > * { flex:1; }
   .opt { display:flex; align-items:center; gap:12px; width:100%; text-align:left; margin:8px 0;
     padding:14px 16px; border:1px solid var(--line); border-radius:13px; background:var(--surface-2);
     color:var(--ink-1); font:inherit; font-size:14.5px; cursor:pointer; transition:.14s; }
@@ -510,12 +515,11 @@
   .lbox-sep { min-width:16px; display:flex; align-items:flex-end; justify-content:center; padding-bottom:8px;
     font-size:22px; font-weight:750; color:var(--ink-3); }
   @keyframes lboxShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
-  .keyrow { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin:14px 0 4px; }
-  .key-btn { min-width:31px; height:37px; padding:0 8px; border:1px solid var(--line); border-radius:9px;
-    background:var(--surface-2); color:var(--ink-1); font:inherit; font-size:14px; font-weight:600;
-    cursor:pointer; text-transform:uppercase; transition:.14s; }
-  .key-btn:hover:not(:disabled) { background:var(--violet-soft); }
-  .key-btn:disabled { opacity:.3; cursor:default; }
+  /* Hangman — blanks + missed-letter strip (no on-screen keyboard; you type) */
+  .hangman-word { font-size:26px; font-weight:750; letter-spacing:6px; margin:18px 0 12px; color:var(--ink-1); }
+  .wrong-strip { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; min-height:26px; margin:6px 0 2px; }
+  .wrong-chip { font-size:14px; font-weight:700; text-transform:uppercase; color:var(--danger);
+    text-decoration:line-through; opacity:.7; width:22px; text-align:center; }
   .dots { display:flex; gap:6px; justify-content:center; margin:4px 0 10px; }
   .life { width:9px; height:9px; border-radius:50%; background:var(--good); }
   .life.gone { background:var(--line); }
@@ -525,6 +529,8 @@
   .gcell.hit  { background:var(--good); border-color:var(--good); color:#fff; }
   .gcell.near { background:var(--warn); border-color:var(--warn); color:#fff; }
   .gcell.miss { background:var(--surface-2); border-color:var(--line); color:var(--ink-3); }
+  .gcell.filled { border-color:var(--ink-3); color:var(--ink-1); }
+  .gcell.active { border-color:var(--violet); box-shadow:0 0 0 3px var(--violet-soft); }
   input.text { width:100%; padding:13px 15px; border:1px solid var(--line); border-radius:13px; font:inherit;
     font-size:16px; background:var(--surface-2); color:var(--ink-1); text-transform:uppercase; outline:none; }
   input.text:focus { border-color:var(--violet); box-shadow:0 0 0 3px var(--violet-soft); }
@@ -669,7 +675,9 @@
     .game-card { padding:14px; }
     .gc-top { margin-bottom:16px; }
     .arcade-frame { height:520px; max-height:62vh; }
-    .prompt-word { font-size:23px; }
+    .game-prompt { font-size:23px; }
+    .game-prompt.text { font-size:18px; }
+    .hangman-word { font-size:23px; letter-spacing:4px; }
     .opt { padding:12px 13px; font-size:14px; margin:7px 0; }
     .letters { gap:6px; margin:14px 0; }
     .lchip { width:33px; height:43px; font-size:19px; }
@@ -859,6 +867,21 @@ function speakLocal(text, btn, lang){
 // games. `id` must be unique within the mounted game so wireSay can find it.
 function sayBtn(id){ return `<button class="say say-sm" id="${id}" type="button" title="Hear pronunciation" aria-label="Hear pronunciation">${I.volume}</button>`; }
 function wireSay(host, id, word, lang){ const b=$("#"+id, host); if(b) b.onclick=(e)=>{ e.stopPropagation(); speak(word, b, lang); }; }
+
+// Shared word-game header pieces so every game reads the same way:
+// a short uppercase instruction eyebrow, then one meta strip (language · part of
+// speech · 🔊 · 🖼️). The 🔊/🖼️ icons render only when sayId/imgId are given —
+// i.e. when the word is already on screen (Quiz, and every game's reveal), so
+// they never spoil a word still being guessed.
+function gameHead(eyebrow){ return `<div class="game-eyebrow">${escHtml(eyebrow)}</div>`; }
+function gameMeta({lang, pos, sayId, imgId, hasImg}){
+  const parts=[];
+  if(pos) parts.push(`<span class="pos" style="font-style:italic;color:var(--ink-3)">${escHtml(pos)}</span>`);
+  if(lang!==undefined) parts.push(langBadge(lang));
+  if(sayId) parts.push(sayBtn(sayId));
+  if(imgId) parts.push(imgAddBtn(imgId, !!hasImg));
+  return `<div class="game-meta">${parts.join("")}</div>`;
+}
 
 // Word images — an optional per-word picture, shown as a visual memory aid only
 // where the word is already visible: flashcard front, quiz prompt, game reveals.
@@ -1527,13 +1550,13 @@ function mountQuiz(host){
     }
   }
   const opts=shuffle([{t:c.def,ok:true}, ...ds.slice(0,3).map(d=>({t:d,ok:false}))]);
-  host.innerHTML=`
-      <div class="muted">What does this word mean?</div>
-      <div class="prompt-word">${escHtml(c.word)}</div>
-      <div class="prompt-meta">${c.pos?`<span class="pos" style="font-style:italic;color:var(--ink-3)">${escHtml(c.pos)}</span>`:""}${langBadge(c.lang)}${sayBtn("qsay")}${imgAddBtn("qimgbtn",!!c.img)}</div>
+  host.innerHTML=`<div class="center">
+      ${gameHead("PICK THE MEANING")}
+      <div class="game-prompt">${escHtml(c.word)}</div>
+      ${gameMeta({lang:c.lang, pos:c.pos, sayId:"qsay", imgId:"qimgbtn", hasImg:c.img})}
       ${imgSlot("qImg","sm")}
       <div id="opts"></div>
-      <div class="msg" id="qmsg"></div>`;
+      <div class="msg" id="qmsg"></div></div>`;
   wireSay(host,"qsay",c.word,c.lang);
   fillWordImage(host,"qImg",c);
   wireAddImg(host,"qimgbtn",c,"qImg");
@@ -1560,12 +1583,13 @@ function mountScramble(host){
   const c=pickWeighted();
   let letters=shuffle(c.word.split("")); if(letters.join("")===c.word&&c.word.length>1)[letters[0],letters[1]]=[letters[1],letters[0]];
   host.innerHTML=`<div class="center">
-      <div class="muted">Unscramble the word ${langBadge(c.lang)}</div>
+      ${gameHead("UNSCRAMBLE")}
       <div class="letters" id="sletters">${letters.map(l=>`<span class="lchip">${escHtml(l)}</span>`).join("")}</div>
-      <p class="def" style="font-size:16px;color:var(--ink-2);max-width:520px;margin:0 auto 14px">${escHtml(c.def)}</p>
+      <p class="game-clue">${escHtml(c.def)}</p>
+      ${gameMeta({lang:c.lang})}
       <div id="sboxes"></div>
       <div class="msg" id="smsg"></div>
-      <div class="row" style="max-width:360px;margin:14px auto 0">
+      <div class="game-actions">
         <button class="btn ghost" id="sskip">Skip</button>
       </div></div>`;
   const chips=Array.from(host.querySelectorAll("#sletters .lchip"));
@@ -1599,16 +1623,20 @@ function mountHangman(host){
   const draw=()=>{
     const shown=word.split("").map(ch=>ch===" "?"·":(guessed.has(ch)?ch:"_")).join(" ");
     const won=word.split("").every(ch=>ch===" "||guessed.has(ch)); const lost=wrong>=MAX;
+    // Missed letters kept visible so you can see what you've already tried —
+    // the on-screen keyboard is gone; you type on the real keyboard.
+    const missed=[...guessed].filter(l=>!word.includes(l)).sort();
     host.innerHTML=`<div class="center">
-      <div class="muted">Guess the word ${langBadge(c.lang)} · <em>${escHtml(c.def)}</em></div>
-      <div style="font-size:30px;font-weight:750;letter-spacing:5px;margin:20px 0 8px">${escHtml(shown)}</div>
+      ${gameHead("GUESS THE WORD")}
+      <div class="game-clue"><em>${escHtml(c.def)}</em></div>
+      ${gameMeta({lang:c.lang})}
+      <div class="hangman-word">${escHtml(shown)}</div>
       <div class="dots">${Array.from({length:MAX},(_,i)=>`<span class="life ${i<wrong?'gone':''}"></span>`).join("")}</div>
-      <div class="keyrow" id="keys">${"abcdefghijklmnopqrstuvwxyz".split("").map(l=>
-        `<button class="key-btn" data-l="${l}" ${guessed.has(l)?"disabled":""}>${l}</button>`).join("")}</div>
+      <div class="wrong-strip">${missed.map(l=>`<span class="wrong-chip">${escHtml(l)}</span>`).join("")}</div>
+      <div class="game-clue">Type a letter to guess.</div>
       <div class="msg center" id="hmsg"></div></div>`;
-    if(won){ $("#hmsg",host).innerHTML=`<div><span class="ok">Nice — you got it.</span> ${sayBtn("hsay")}${imgAddBtn("himgbtn",!!c.img)}</div>${imgSlot("himg","sm")}`; wireSay(host,"hsay",c.word,c.lang); speak(c.word,$("#hsay",host),c.lang); fillWordImage(host,"himg",c); wireAddImg(host,"himgbtn",c,"himg"); review(c.word,true); bumpGame("hangman","wins"); scheduleAdvance(()=>mountHangman(host),1900); return; }
-    if(lost){ $("#hmsg",host).innerHTML=`<div><span class="no">The word was “${escHtml(word)}”.</span> ${sayBtn("hsay")}${imgAddBtn("himgbtn",!!c.img)}</div>${imgSlot("himg","sm")}`; wireSay(host,"hsay",c.word,c.lang); speak(c.word,$("#hsay",host),c.lang); fillWordImage(host,"himg",c); wireAddImg(host,"himgbtn",c,"himg"); review(c.word,false); scheduleAdvance(()=>mountHangman(host),2400); return; }
-    host.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{ const l=b.dataset.l; guessed.add(l); if(!word.includes(l)) wrong++; draw(); });
+    if(won){ $("#hmsg",host).innerHTML=`<div><span class="ok">Nice — you got it.</span> ${sayBtn("hsay")}${imgAddBtn("himgbtn",!!c.img)}</div>${imgSlot("himg","sm")}`; wireSay(host,"hsay",c.word,c.lang); speak(c.word,$("#hsay",host),c.lang); fillWordImage(host,"himg",c); wireAddImg(host,"himgbtn",c,"himg"); review(c.word,true); bumpGame("hangman","wins"); keyHandler=null; scheduleAdvance(()=>mountHangman(host),1900); return; }
+    if(lost){ $("#hmsg",host).innerHTML=`<div><span class="no">The word was “${escHtml(word)}”.</span> ${sayBtn("hsay")}${imgAddBtn("himgbtn",!!c.img)}</div>${imgSlot("himg","sm")}`; wireSay(host,"hsay",c.word,c.lang); speak(c.word,$("#hsay",host),c.lang); fillWordImage(host,"himg",c); wireAddImg(host,"himgbtn",c,"himg"); review(c.word,false); keyHandler=null; scheduleAdvance(()=>mountHangman(host),2400); return; }
   };
   draw();
   keyHandler=(e)=>{ const l=e.key.toLowerCase(); if(/^[a-z]$/.test(l)&&!guessed.has(l)){ guessed.add(l); if(!word.includes(l)) wrong++; draw(); } };
@@ -1616,8 +1644,9 @@ function mountHangman(host){
 
 function mountWordle(host){
   const c=pickWeighted(); const word=c.word.toLowerCase().replace(/[^a-z]/g,""); const N=word.length, MAX=6;
-  let rows=[], done=false;
-  const rowEl=g=>{
+  let rows=[], current="", done=false;
+  // A fully-submitted guess, graded into hit / near / miss cells.
+  const gradedRow=g=>{
     const wrap=document.createElement("div"); wrap.className="grid-guess";
     const counts={}; for(const ch of word) counts[ch]=(counts[ch]||0)+1;
     const cls=Array(N).fill("miss");
@@ -1626,26 +1655,46 @@ function mountWordle(host){
     for(let i=0;i<N;i++){ const d=document.createElement("div"); d.className="gcell "+cls[i]; d.textContent=g[i]||""; wrap.appendChild(d); }
     return wrap;
   };
+  // The row you're typing into now (filled cells + a caret on the next slot).
+  const activeRow=()=>{
+    const wrap=document.createElement("div"); wrap.className="grid-guess";
+    for(let i=0;i<N;i++){ const d=document.createElement("div");
+      d.className="gcell"+(i<current.length?" filled":"")+((!done && i===current.length)?" active":"");
+      d.textContent=current[i]||""; wrap.appendChild(d); }
+    return wrap;
+  };
+  const emptyRow=()=>{ const wrap=document.createElement("div"); wrap.className="grid-guess";
+    for(let i=0;i<N;i++){ const d=document.createElement("div"); d.className="gcell"; wrap.appendChild(d); } return wrap; };
   const render=()=>{
     host.innerHTML=`<div class="center">
-      <div class="muted">Guess the ${N}-letter word ${langBadge(c.lang)} · <em>${escHtml(c.def)}</em></div>
-      <div id="grid" style="margin:18px 0"></div>
-      <input class="text" id="winput" maxlength="${N}" placeholder="${N} letters, then Enter" autocomplete="off" ${done?"disabled":""} style="max-width:340px;margin:0 auto"/>
+      ${gameHead("CRACK THE WORD")}
+      <div class="game-clue">${N}-letter word · <em>${escHtml(c.def)}</em></div>
+      ${gameMeta({lang:c.lang})}
+      <div id="grid" style="margin:16px 0"></div>
+      ${done?"":`<div class="game-clue">Type letters · Enter to submit.</div>`}
       <div class="msg" id="wmsg"></div></div>`;
-    const grid=$("#grid",host); rows.forEach(g=>grid.appendChild(rowEl(g)));
-    if(!done){ const inp=$("#winput",host); setTimeout(()=>inp.focus(),30);
-      inp.onkeydown=e=>{ if(e.key==="Enter") tryGuess(inp.value.toLowerCase()); }; }
+    const grid=$("#grid",host);
+    rows.forEach(g=>grid.appendChild(gradedRow(g)));
+    if(!done){ grid.appendChild(activeRow()); for(let r=rows.length+1;r<MAX;r++) grid.appendChild(emptyRow()); }
   };
-  const tryGuess=g=>{
-    if(g.length!==N){ $("#wmsg",host).innerHTML=`<span class="no">Needs ${N} letters.</span>`; return; }
-    rows.push(g);
+  const submit=()=>{
+    if(current.length!==N){ $("#wmsg",host).innerHTML=`<span class="no">Needs ${N} letters.</span>`; return; }
+    const g=current; rows.push(g); current="";
     if(g===word){ done=true; render(); $("#wmsg",host).innerHTML=`<div><span class="ok">Solved in ${rows.length}.</span> ${sayBtn("wsay")}${imgAddBtn("wimgbtn",!!c.img)}</div>${imgSlot("wimg","sm")}`;
       wireSay(host,"wsay",c.word,c.lang); speak(c.word,$("#wsay",host),c.lang); fillWordImage(host,"wimg",c); wireAddImg(host,"wimgbtn",c,"wimg");
-      review(c.word,true); bumpGame("wordle","wins"); bumpGame("wordle","best",MAX-rows.length+1); scheduleAdvance(()=>mountWordle(host),2000); return; }
-    if(rows.length>=MAX){ done=true; render(); $("#wmsg",host).innerHTML=`<div><span class="no">It was “${word}”.</span> ${sayBtn("wsay")}${imgAddBtn("wimgbtn",!!c.img)}</div>${imgSlot("wimg","sm")}`; wireSay(host,"wsay",c.word,c.lang); speak(c.word,$("#wsay",host),c.lang); fillWordImage(host,"wimg",c); wireAddImg(host,"wimgbtn",c,"wimg"); review(c.word,false); scheduleAdvance(()=>mountWordle(host),2600); return; }
+      review(c.word,true); bumpGame("wordle","wins"); bumpGame("wordle","best",MAX-rows.length+1); keyHandler=null; scheduleAdvance(()=>mountWordle(host),2000); return; }
+    if(rows.length>=MAX){ done=true; render(); $("#wmsg",host).innerHTML=`<div><span class="no">It was “${word}”.</span> ${sayBtn("wsay")}${imgAddBtn("wimgbtn",!!c.img)}</div>${imgSlot("wimg","sm")}`; wireSay(host,"wsay",c.word,c.lang); speak(c.word,$("#wsay",host),c.lang); fillWordImage(host,"wimg",c); wireAddImg(host,"wimgbtn",c,"wimg"); review(c.word,false); keyHandler=null; scheduleAdvance(()=>mountWordle(host),2600); return; }
     render();
   };
   render();
+  // No text input — you type straight into the grid (physical keyboard).
+  keyHandler=(e)=>{
+    if(done) return;
+    if(e.key==="Enter"){ e.preventDefault(); submit(); return; }
+    if(e.key==="Backspace"){ e.preventDefault(); if(current.length){ current=current.slice(0,-1); render(); } return; }
+    const l=e.key.toLowerCase();
+    if(/^[a-z]$/.test(l) && current.length<N){ current+=l; render(); }
+  };
 }
 
 // A row of single-character boxes — one per letter of `answer`. Focus
@@ -1733,12 +1782,13 @@ function mountCloze(host){
   const blank=`<span class="cloze-blank">${"_".repeat(Math.max(4,hit.length))}</span>`;
   const sentence=escHtml(c.ex.slice(0,idx))+blank+escHtml(c.ex.slice(idx+hit.length));
   host.innerHTML=`<div class="center">
-      <div class="muted">Fill in the missing word ${langBadge(c.lang)}</div>
+      ${gameHead("FILL THE GAP")}
       <p class="cloze-sent">${sentence}</p>
-      ${c.def?`<p class="cloze-hint"><em>${escHtml(c.def)}</em></p>`:""}
+      ${c.def?`<p class="game-clue"><em>${escHtml(c.def)}</em></p>`:""}
+      ${gameMeta({lang:c.lang})}
       <div id="cboxes"></div>
       <div class="msg" id="cmsg"></div>
-      <div class="row" style="max-width:360px;margin:14px auto 0">
+      <div class="game-actions">
         <button class="btn ghost" id="cskip">Skip</button>
       </div></div>`;
   letterInputs(host,"cboxes",hit,{   // the exact form blanked from the sentence
@@ -1754,12 +1804,13 @@ function mountDictate(host){
   keyHandler=null;
   const c=pickWeighted();
   host.innerHTML=`<div class="center">
-      <div class="muted">Type the word you hear ${langBadge(c.lang)}</div>
+      ${gameHead("LISTEN & TYPE")}
       <button class="say say-lg" id="dsay" type="button" title="Play again" aria-label="Play again">${I.volume}</button>
-      ${c.def?`<p class="cloze-hint"><em>${escHtml(c.def)}</em></p>`:""}
+      ${c.def?`<p class="game-clue"><em>${escHtml(c.def)}</em></p>`:""}
+      ${gameMeta({lang:c.lang})}
       <div id="dboxes"></div>
       <div class="msg" id="dmsg"></div>
-      <div class="row" style="max-width:360px;margin:14px auto 0">
+      <div class="game-actions">
         <button class="btn ghost" id="dskip">Skip</button>
       </div></div>`;
   wireSay(host,"dsay",c.word,c.lang);
@@ -1777,12 +1828,12 @@ function mountRecall(host){
   keyHandler=null;
   const c=pickWeighted();
   host.innerHTML=`<div class="center">
-      <div class="muted">What word means this? ${langBadge(c.lang)}</div>
-      <p class="recall-def">${escHtml(c.def)}</p>
-      ${c.pos?`<div class="prompt-meta"><span class="pos" style="font-style:italic;color:var(--ink-3)">${escHtml(c.pos)}</span></div>`:""}
+      ${gameHead("NAME THE WORD")}
+      <p class="game-prompt text">${escHtml(c.def)}</p>
+      ${gameMeta({lang:c.lang, pos:c.pos})}
       <div id="rboxes"></div>
       <div class="msg" id="rmsg"></div>
-      <div class="row" style="max-width:360px;margin:14px auto 0">
+      <div class="game-actions">
         <button class="btn ghost" id="rskip">Reveal</button>
       </div></div>`;
   letterInputs(host,"rboxes",c.word,{
