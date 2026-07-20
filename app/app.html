@@ -260,15 +260,12 @@
   .say:active { transform:scale(.93); }
   .say.speaking { background:var(--violet); color:#fff; border-color:transparent; animation:sayPulse 1s ease-in-out infinite; }
   @keyframes sayPulse { 0%,100%{ box-shadow:0 0 0 0 var(--violet-soft); } 50%{ box-shadow:0 0 0 6px var(--violet-soft); } }
-  /* Openverse memory-aid pictures */
+  /* per-word memory-aid picture (manual image URL, from any source) */
   .word-img-slot { display:flex; justify-content:center; }
   .word-img-fig { margin:0; display:flex; flex-direction:column; align-items:center; gap:3px; }
   .word-img { display:block; max-width:260px; max-height:150px; width:auto; object-fit:cover;
     border-radius:12px; border:1px solid var(--line); background:var(--surface-2); }
   .word-img-slot.sm .word-img { max-height:96px; max-width:200px; }
-  .word-img-cap { font-size:10px; color:var(--ink-3); text-align:center; line-height:1.3; }
-  .word-img-cap a { color:var(--ink-3); text-decoration:none; }
-  .word-img-cap a:hover { text-decoration:underline; }
   /* type-in games: Context Gap, Dictation, Recall */
   .say.say-lg { width:56px; height:56px; margin:16px auto 0; }
   .say.say-lg svg { width:28px; height:28px; }
@@ -768,7 +765,6 @@ const api = {
   async checkUpdate(){ try{ await fetch("/api/check-update",{method:"POST"}); }catch{} },
   async settings(){ try{ return await (await fetch("/api/settings")).json(); }catch{ return {}; } },
   async saveSettings(patch){ try{ return await (await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(patch)})).json(); }catch{ return null; } },
-  async image(word,lang){ try{ return await (await fetch("/api/image?word="+encodeURIComponent(word)+"&lang="+encodeURIComponent(lang||""))).json(); }catch{ return null; } },
   async sync(){ try{ return await (await fetch("/api/sync")).json(); }catch{ return {enabled:false}; } },
   async setSync(dir){ try{ return await (await fetch("/api/sync",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dir})})).json(); }catch{ return {ok:false,error:"Network error"}; } },
   async openSocial(site){ try{ return await (await fetch("/api/social/open?site="+encodeURIComponent(site))).json(); }catch{ return null; } },
@@ -836,27 +832,15 @@ function speakLocal(text, btn, lang){
 function sayBtn(id){ return `<button class="say say-sm" id="${id}" type="button" title="Hear pronunciation" aria-label="Hear pronunciation">${I.volume}</button>`; }
 function wireSay(host, id, word, lang){ const b=$("#"+id, host); if(b) b.onclick=(e)=>{ e.stopPropagation(); speak(word, b, lang); }; }
 
-// Word images (Openverse, server-proxied + cached) — a visual memory aid shown
+// Word images — an optional per-word picture, shown as a visual memory aid only
 // where the word is already visible: flashcard front, quiz prompt, game reveals.
-// imgSlot() drops a stable placeholder; fillWordImage() fills it asynchronously
-// so the card never blocks on the network. A manual `rec.img` URL wins; results
-// are memoised per session so re-renders (e.g. the Practice reshuffle) don't refetch.
-const _imgMemo = new Map();
+// imgSlot() drops a stable placeholder; fillWordImage() fills it from the word's
+// own `img` URL (set by hand in the word editor — any source). No auto-fetch: a
+// word shows a picture only if you gave it one, so it's always relevant.
 function imgSlot(id, cls){ return `<div class="word-img-slot ${cls||""}" id="${id}"></div>`; }
-async function fillWordImage(host, id, rec){
-  if(SETTINGS.images===false) return;
-  const slot=$("#"+id, host); if(!slot || !rec) return;
-  if(rec.img){ slot.innerHTML=`<figure class="word-img-fig"><img class="word-img" src="${escHtml(rec.img)}" alt="" loading="lazy" onerror="this.closest('.word-img-fig').remove()"></figure>`; return; }
-  const key=(rec.lang||"")+":"+(rec.word||"");
-  let data=_imgMemo.get(key);
-  if(data===undefined){ data=await api.image(rec.word, rec.lang); _imgMemo.set(key, data); }
-  if(!slot.isConnected) return;                 // the view moved on while we waited
-  if(data && data.ok){
-    const cap = data.creator
-      ? `<figcaption class="word-img-cap"><a href="${escHtml(data.landing||'#')}" target="_blank" rel="noopener">${escHtml(data.creator)}</a>${data.license?` · <a href="${escHtml(data.license_url||'#')}" target="_blank" rel="noopener">${escHtml(data.license.toUpperCase())}</a>`:""}</figcaption>`
-      : "";
-    slot.innerHTML=`<figure class="word-img-fig"><img class="word-img" src="${escHtml(data.src)}" alt="" loading="lazy">${cap}</figure>`;
-  }
+function fillWordImage(host, id, rec){
+  const slot=$("#"+id, host); if(!slot || !rec || !rec.img) return;
+  slot.innerHTML=`<figure class="word-img-fig"><img class="word-img" src="${escHtml(rec.img)}" alt="" loading="lazy" onerror="this.closest('.word-img-fig').remove()"></figure>`;
 }
 
 const I = {
@@ -1272,8 +1256,8 @@ function renderWordEditor(host){
         <textarea class="finput" id="fDef" rows="2" placeholder="What it means">${escHtml(w.def||"")}</textarea></label>
       <label class="fld"><span class="fld-l">Example <em>optional</em></span>
         <textarea class="finput" id="fEx" rows="2" placeholder="A sentence using the word">${escHtml(w.ex||"")}</textarea></label>
-      <label class="fld"><span class="fld-l">Image URL <em>optional · overrides the auto-picture</em></span>
-        <input class="finput" id="fImg" type="text" autocomplete="off" placeholder="https://…  (leave blank to auto-fetch from Openverse)" value="${escHtml(w.img||"")}"></label>
+      <label class="fld"><span class="fld-l">Image URL <em>optional · a memory-aid picture</em></span>
+        <input class="finput" id="fImg" type="text" autocomplete="off" placeholder="https://…  paste an image URL from anywhere" value="${escHtml(w.img||"")}"></label>
       <div class="fld"><span class="fld-l">Wrong answers <em>optional · shown as decoys in the Quiz</em></span>
         <input class="finput" id="fD0" type="text" autocomplete="off" placeholder="A plausible wrong meaning" value="${escHtml(ds[0])}">
         <input class="finput" id="fD1" type="text" autocomplete="off" placeholder="Another wrong meaning" value="${escHtml(ds[1])}">
@@ -1834,13 +1818,6 @@ function renderSettings(){
         </div>
         <div class="set-ctl">${sw("swSound",s.sound)}</div>
       </div>
-      <div class="set-row">
-        <div class="set-info">
-          <div class="set-label">Word images</div>
-          <div class="set-desc">Show a Creative-Commons picture for each word (from Openverse) on the flashcard and games, as a memory aid. Fetched once and cached locally.</div>
-        </div>
-        <div class="set-ctl">${sw("swImages",s.images!==false)}</div>
-      </div>
     </div>
 
     <div class="card set-card">
@@ -1881,7 +1858,6 @@ function renderSettings(){
   numH.onchange=()=>{ numH.value=clamp(numH.value,800); saveSetting({height:parseInt(numH.value)}); };
 
   $("#swSound").onchange=e=>{ if(e.target.checked) chime(); saveSetting({sound:e.target.checked}); };
-  $("#swImages").onchange=e=>saveSetting({images:e.target.checked});
   $("#swEnabled").onchange=e=>saveSetting({enabled:e.target.checked});
   $("#swUpdate").onchange=e=>saveSetting({autoUpdate:e.target.checked});
   paintSync();

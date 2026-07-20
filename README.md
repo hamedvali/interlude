@@ -32,7 +32,7 @@ exactly when it's time to read or reply.
 ## ✨ Highlights
 
 - 🧠 **Learn while you wait** — spaced-repetition flashcards (Leitner boxes 1–5) surface the words you're about to forget, and speak them aloud on demand.
-- 🖼️ **Picture memory aids** — each word gets a Creative-Commons photo from [Openverse](https://openverse.org) (no API key, cached locally, credited) on the flashcard and games. Toggle off in Settings, or paste your own image URL per word.
+- 🖼️ **Picture memory aids** — give any word an image URL (from anywhere) and it shows on the flashcard and games as a visual mnemonic — so the picture is always one you chose and actually relevant.
 - 🎮 **Word games + Arcade** — seven quick word games (Definition Quiz, Word Scramble, Hangman, Vocab Wordle, plus retrieval-first **Context Gap**, **Dictation**, and **Recall**) that all feed the same spaced-repetition boxes — plus a full-screen **Arcade** with a vendored, MIT-licensed [2048](https://github.com/gabrielecirulli/2048) that **saves and resumes mid-game** — stop halfway, pick up right where you left off.
 - 📱 **Social, in the window** — a quick pick of Instagram · X · TikTok, opened right inside the popup for a genuinely mindless glance while you wait.
 - 🎛️ **State-aware attention routing** — Interlude sees *why* Claude stopped and reacts differently: **done** (violet, counts down and closes), **needs input** (amber, closes so you can reply), **permission** (red, flashes then closes), **error** (red, stays open with the last line). Optional matching macOS chimes.
@@ -211,16 +211,11 @@ writes are atomic, so you'll never get a half-written file.
 
 ## 🖼️ Word images
 
-Every word can show a picture as a visual memory aid — on the flashcard front, next to the word in
-the Definition Quiz, and on the reveal after you solve Scramble / Hangman / Wordle (never during
-play, so nothing is spoiled). Images come from [Openverse](https://openverse.org), the
-Creative-Commons image search — **no API key, no account**. The first time a word appears its
-picture is fetched and **cached locally** (under `~/.interlude/imgcache`), so it's instant and
-offline afterward, and the creator + licence are credited beneath it.
-
-Many advanced words are abstract, so the match is sometimes only loosely related — which is exactly
-how the keyword-mnemonic technique works. Turn it all off with **Settings ▸ Word images**, or paste
-an exact **image URL** in a word's editor to override the auto-picture.
+Any word can show a picture as a visual memory aid — on the flashcard front, next to the word in the
+Definition Quiz, and on the reveal after you solve Scramble / Hangman / Wordle (never during play, so
+nothing is spoiled). Pictures are **opt-in per word**: paste an **image URL** (from any source) into
+a word's editor, and only that word gets a picture. Nothing is auto-fetched, so every image is one
+you chose and actually relevant to the word.
 
 <br />
 
