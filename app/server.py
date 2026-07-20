@@ -86,6 +86,10 @@ SETTINGS_DEFAULTS = {
     "width": int(os.environ.get("INTERLUDE_WIDTH", "350")),
     "height": int(os.environ.get("INTERLUDE_HEIGHT", "800")),
     "sound": False,
+    # Optional folder (e.g. a Dropbox dir) where progress lives so several
+    # machines share it. Empty = local-only. Written via _save_sync_dir, not
+    # write_settings — it's a free-form path, not a whitelisted choice.
+    "syncDir": "",
 }
 _SETTINGS_CHOICES = {
     "openOn": {"tool", "prompt", "both"},
@@ -309,12 +313,138 @@ def _pack_payload(entry, with_words=False):
     return out
 
 
+def _sync_dir():
+    """The configured sync folder (expanded/absolute), or '' if unset."""
+    s = read_json(SETTINGS_JSON, {})
+    d = s.get("syncDir", "") if isinstance(s, dict) else ""
+    return os.path.abspath(os.path.expanduser(d)) if d else ""
+
+
+def state_path():
+    """Active progress file. When a sync folder is configured and present (e.g. a
+    Dropbox dir shared across machines), progress lives there; otherwise it's the
+    local STATE_FILE. A configured-but-missing folder (Dropbox not mounted) falls
+    back to local so the app keeps working."""
+    d = _sync_dir()
+    if d and os.path.isdir(d):
+        return os.path.join(d, "state.json")
+    return STATE_FILE
+
+
 def write_state(state):
-    os.makedirs(DATA_DIR, exist_ok=True)
-    tmp = STATE_FILE + ".tmp"
+    path = state_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
     with open(tmp, "w") as f:
         json.dump(state, f, indent=2)
-    os.replace(tmp, STATE_FILE)
+    os.replace(tmp, path)
+
+
+def _save_sync_dir(d):
+    """Persist syncDir into settings.json (kept local, per-machine)."""
+    cur = read_json(SETTINGS_JSON, {})
+    if not isinstance(cur, dict):
+        cur = {}
+    cur["syncDir"] = d
+    os.makedirs(DATA_DIR, exist_ok=True)
+    tmp = SETTINGS_JSON + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(cur, f, indent=2)
+    os.replace(tmp, SETTINGS_JSON)
+
+
+def _dropbox_candidates():
+    """Existing Dropbox root folders on this Mac, best guess first. Checks the
+    default locations plus any path Dropbox records in its info.json."""
+    home = os.path.expanduser("~")
+    cands = [os.path.join(home, "Dropbox"),
+             os.path.join(home, "Library", "CloudStorage", "Dropbox")]
+    for info in (os.path.join(home, ".dropbox", "info.json"),
+                 os.path.join(home, "Library", "Application Support", "Dropbox", "info.json")):
+        data = read_json(info, {})
+        if isinstance(data, dict):
+            for acct in data.values():
+                p = acct.get("path") if isinstance(acct, dict) else None
+                if p:
+                    cands.append(p)
+    out = []
+    for c in cands:
+        if c and c not in out and os.path.isdir(c):
+            out.append(c)
+    return out
+
+
+def sync_status():
+    d = _sync_dir()
+    boxes = _dropbox_candidates()
+    suggested = os.path.join(boxes[0] if boxes else os.path.join(os.path.expanduser("~"), "Dropbox"),
+                             "Interlude")
+    try:
+        last = int(os.path.getmtime(state_path()) * 1000)
+    except OSError:
+        last = 0
+    return {
+        "enabled": bool(d),
+        "dir": d,
+        "dirExists": bool(d) and os.path.isdir(d),
+        "dropboxFound": bool(boxes),
+        "suggested": suggested,
+        "lastModified": last,
+    }
+
+
+def set_sync(dir_in):
+    """Enable/disable folder sync without ever losing progress.
+      - disable (empty dir): copy the synced state back to local, then clear.
+      - enable, folder empty: seed it from this machine's current progress.
+      - enable, folder has state.json: adopt it (don't overwrite)."""
+    dir_in = (dir_in or "").strip()
+    if not dir_in:
+        active = state_path()
+        if os.path.abspath(active) != os.path.abspath(STATE_FILE):
+            data = read_json(active, None)
+            if data is not None:
+                try:
+                    os.makedirs(DATA_DIR, exist_ok=True)
+                    tmp = STATE_FILE + ".tmp"
+                    with open(tmp, "w") as f:
+                        json.dump(data, f, indent=2)
+                    os.replace(tmp, STATE_FILE)
+                except OSError:
+                    pass
+        _save_sync_dir("")
+        return {"ok": True, "adopted": False, **sync_status()}
+
+    d = os.path.abspath(os.path.expanduser(dir_in))
+    if not os.path.isdir(d) and not os.path.isdir(os.path.dirname(d)):
+        return {"ok": False, "error": "That folder doesn’t exist. Check the path — is Dropbox installed?"}
+    try:
+        os.makedirs(d, exist_ok=True)
+    except OSError:
+        return {"ok": False, "error": "Couldn’t create that folder."}
+    probe = os.path.join(d, ".interlude-write-test")
+    try:
+        with open(probe, "w") as f:
+            f.write("ok")
+        os.remove(probe)
+    except OSError:
+        return {"ok": False, "error": "That folder isn’t writable."}
+
+    target = os.path.join(d, "state.json")
+    adopted = os.path.isfile(target)
+    if not adopted:
+        cur = read_json(state_path(), None)
+        if cur is None:
+            cur = json.loads(json.dumps(DEFAULT_STATE))
+        try:
+            tmp = target + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump(cur, f, indent=2)
+            os.replace(tmp, target)
+        except OSError:
+            return {"ok": False, "error": "Couldn’t write to that folder."}
+    _save_sync_dir(d)
+    return {"ok": True, "adopted": adopted, **sync_status()}
 
 
 def deep_merge(base, incoming):
@@ -510,10 +640,12 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._send(200, _pack_payload(entry, with_words=True))
         elif path == "/api/state":
-            state = read_json(STATE_FILE, None)
+            state = read_json(state_path(), None)
             if state is None:
                 state = json.loads(json.dumps(DEFAULT_STATE))
             self._send(200, state)
+        elif path == "/api/sync":
+            self._send(200, sync_status())
         elif path == "/api/social/open":
             q = parse_qs(urlparse(self.path).query)
             site = (q.get("site") or [""])[0]
@@ -534,12 +666,20 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 self._send(400, {"error": "bad json"})
                 return
-            state = read_json(STATE_FILE, None)
+            state = read_json(state_path(), None)
             if state is None:
                 state = json.loads(json.dumps(DEFAULT_STATE))
             deep_merge(state, incoming)
             write_state(state)
             self._send(200, state)
+        elif path == "/api/sync":
+            try:
+                incoming = json.loads(raw or b"{}")
+            except Exception:
+                self._send(400, {"error": "bad json"})
+                return
+            d = incoming.get("dir", "") if isinstance(incoming, dict) else ""
+            self._send(200, set_sync(d))
         elif path == "/api/settings":
             try:
                 incoming = json.loads(raw or b"{}")

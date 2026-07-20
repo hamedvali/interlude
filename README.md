@@ -18,7 +18,7 @@ exactly when it's time to read or reply.
 [![Made with Python](https://img.shields.io/badge/python-3-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-zero-2ea44f)](#-how-it-works)
 [![No Dock icon](https://img.shields.io/badge/dock%20icon-none-7C4DEB)](#-how-it-works)
-[![Version](https://img.shields.io/badge/version-1.18.0-7C4DEB)](#)
+[![Version](https://img.shields.io/badge/version-1.19.0-7C4DEB)](#)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 
 <br />
@@ -189,6 +189,22 @@ interlude update       # check + apply now (ignores the throttle)
 interlude update off   # disable auto-update  (or set INTERLUDE_NO_UPDATE=1)
 interlude update on    # re-enable
 ```
+
+<br />
+
+## 🔁 Sync across machines
+
+Use Interlude on more than one Mac? Point your progress at a shared folder and both machines
+stay in step — same deck, streak, history, and game stats. In **Settings ▸ Sync across
+machines**, enter a folder inside your **Dropbox** (or iCloud Drive / Google Drive) and hit
+**Turn on sync**. Install the sync app and sign into the same account on each Mac, turn sync on
+in each, and they'll share one `state.json`.
+
+The first machine you turn on **seeds** the folder from its current progress; the next machine
+**adopts** what's already there. Your local `~/.interlude/state.json` is never deleted, so
+turning sync off just falls back to it. Only progress is shared — window size and other settings
+stay per-machine. Use one machine at a time and let the folder finish syncing before switching;
+writes are atomic, so you'll never get a half-written file.
 
 <br />
 

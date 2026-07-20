@@ -352,6 +352,21 @@
   .pack-card .pc-add { flex:0 0 auto; white-space:nowrap; align-self:center; }
   .pack-card .pc-add svg { width:16px; height:16px; }
 
+  /* settings ▸ sync across machines */
+  .sync-on { display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:650;
+    color:var(--good); background:var(--good-soft); padding:9px 13px; border-radius:12px; }
+  .sync-on svg { width:16px; height:16px; flex:0 0 auto; }
+  .sync-on code { font-weight:650; word-break:break-all; }
+  .sync-warn { margin-top:9px; font-size:12.5px; color:var(--danger);
+    background:var(--danger-soft); padding:9px 12px; border-radius:11px; line-height:1.45; }
+  .sync-input { display:flex; gap:9px; align-items:center; margin-top:12px; }
+  .sync-input input.text { flex:1; text-transform:none; font-size:14px; }
+  .sync-input .btn { flex:0 0 auto; white-space:nowrap; }
+  .sync-hint { margin-top:8px; font-size:12px; }
+  #syncBody .pc-msg { min-height:0; font-size:12.5px; color:var(--ink-2); font-weight:600; }
+  #syncBody .pc-msg:not(:empty) { margin-top:9px; }
+  #syncBody .set-desc { margin-top:2px; }
+
   /* word editor (add / edit) */
   .editor-bar { display:flex; align-items:center; gap:12px; margin:2px 0 14px; }
   .editor-card { display:flex; flex-direction:column; gap:15px; padding:20px 22px; }
@@ -736,6 +751,8 @@ const api = {
   async checkUpdate(){ try{ await fetch("/api/check-update",{method:"POST"}); }catch{} },
   async settings(){ try{ return await (await fetch("/api/settings")).json(); }catch{ return {}; } },
   async saveSettings(patch){ try{ return await (await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(patch)})).json(); }catch{ return null; } },
+  async sync(){ try{ return await (await fetch("/api/sync")).json(); }catch{ return {enabled:false}; } },
+  async setSync(dir){ try{ return await (await fetch("/api/sync",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dir})})).json(); }catch{ return {ok:false,error:"Network error"}; } },
   async openSocial(site){ try{ return await (await fetch("/api/social/open?site="+encodeURIComponent(site))).json(); }catch{ return null; } },
   async snooze(hours){ try{ return await (await fetch("/api/snooze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({hours})})).json(); }catch{ return null; } },
 };
@@ -1631,6 +1648,11 @@ function renderSettings(){
     </div>
 
     <div class="card set-card">
+      <div class="set-cap">Sync across machines</div>
+      <div id="syncBody"><div class="muted" style="padding:4px 0">Loading…</div></div>
+    </div>
+
+    <div class="card set-card">
       <div class="set-cap">Interlude</div>
       <div class="set-row">
         <div class="set-info">
@@ -1665,6 +1687,49 @@ function renderSettings(){
   $("#swSound").onchange=e=>{ if(e.target.checked) chime(); saveSetting({sound:e.target.checked}); };
   $("#swEnabled").onchange=e=>saveSetting({enabled:e.target.checked});
   $("#swUpdate").onchange=e=>saveSetting({autoUpdate:e.target.checked});
+  paintSync();
+}
+
+// Fills the Settings "Sync across machines" card. Progress (state.json) can be
+// redirected to a shared folder (Dropbox etc.) so two Macs stay in step. On any
+// change we reload the page so the SPA re-reads the now-active state and rebuilds
+// its in-memory deck — otherwise a stale deck could overwrite adopted progress.
+async function paintSync(){
+  const box=$("#syncBody"); if(!box) return;
+  const st=await api.sync();
+  if(st.enabled){
+    box.innerHTML=`
+      <div class="sync-on">${I.check} Syncing to <code>${escHtml(st.dir)}</code></div>
+      ${st.dirExists?"":`<div class="sync-warn">This folder isn’t reachable right now — progress is saving locally until it’s back (is Dropbox running?).</div>`}
+      <div class="set-desc">Your deck, streak and stats are saved here. Sign in to the same Dropbox on your other Mac, turn sync on there too, and it’ll pick up this progress.</div>
+      <div style="margin-top:12px"><button class="btn ghost" id="syncOff">Turn off sync</button></div>
+      <div class="pc-msg" id="syncMsg"></div>`;
+    $("#syncOff").onclick=async(e)=>{
+      const m=$("#syncMsg"); e.target.disabled=true; m.textContent="Turning off…";
+      const r=await api.setSync("");
+      if(r&&r.ok){ location.reload(); }
+      else { e.target.disabled=false; m.textContent=(r&&r.error)||"Couldn’t turn off sync."; }
+    };
+  } else {
+    box.innerHTML=`
+      <div class="set-desc">Save your progress to a <b>Dropbox</b> folder so both laptops share one deck, streak and history. Install Dropbox and sign in with the same account on each Mac, then point Interlude at a folder inside it. (Any synced folder — iCloud, Google Drive — works too.)</div>
+      <div class="sync-input">
+        <input class="text" id="syncDir" placeholder="~/Dropbox/Interlude" value="${escHtml(st.suggested||"")}" spellcheck="false">
+        <button class="btn primary" id="syncOn">Turn on sync</button>
+      </div>
+      <div class="muted sync-hint">${st.dropboxFound?"Dropbox found on this Mac — the path above is ready to use.":"Tip: install the Dropbox app first, or enter any synced-folder path."}</div>
+      <div class="pc-msg" id="syncMsg"></div>`;
+    $("#syncOn").onclick=async(e)=>{
+      const dir=($("#syncDir").value||"").trim(), m=$("#syncMsg");
+      if(!dir){ m.textContent="Enter a folder path."; return; }
+      e.target.disabled=true; m.textContent="Setting up…";
+      const r=await api.setSync(dir);
+      if(r&&r.ok){ location.reload(); }
+      else { e.target.disabled=false; m.textContent=(r&&r.error)||"Couldn’t turn on sync."; }
+    };
+    const inp=$("#syncDir");
+    if(inp) inp.onkeydown=(ev)=>{ if(ev.key==="Enter"){ ev.preventDefault(); $("#syncOn").click(); } };
+  }
 }
 
 /* soft two-note chime when Claude finishes (best-effort; needs audio to be allowed) */
