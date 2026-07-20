@@ -11,6 +11,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.request
@@ -118,6 +119,7 @@ TTS_LANGS = {"en": "en", "nl": "nl", "de": "de"}
 _TTS_CACHE = {}            # (tl\x00text) -> mp3 bytes; words repeat a lot in practice
 _TTS_CACHE_MAX = 300
 _tts_lock = threading.Lock()
+_state_lock = threading.Lock()   # serialize the read-merge-write of /api/state
 
 DEFAULT_STATE = {
     "words": {},        # word -> {"box": 1, "seen": 0, "correct": 0}
@@ -333,11 +335,22 @@ def state_path():
 
 def write_state(state):
     path = state_path()
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(state, f, indent=2)
-    os.replace(tmp, path)
+    d = os.path.dirname(path)
+    os.makedirs(d, exist_ok=True)
+    # Unique temp per write so two concurrent saves (ThreadingHTTPServer) can't
+    # race on one fixed ".tmp" name — the earlier bug where a rename found the
+    # temp already gone.
+    fd, tmp = tempfile.mkstemp(dir=d, prefix=".state-", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(state, f, indent=2)
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def _save_sync_dir(d):
@@ -666,11 +679,12 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 self._send(400, {"error": "bad json"})
                 return
-            state = read_json(state_path(), None)
-            if state is None:
-                state = json.loads(json.dumps(DEFAULT_STATE))
-            deep_merge(state, incoming)
-            write_state(state)
+            with _state_lock:
+                state = read_json(state_path(), None)
+                if state is None:
+                    state = json.loads(json.dumps(DEFAULT_STATE))
+                deep_merge(state, incoming)
+                write_state(state)
             self._send(200, state)
         elif path == "/api/sync":
             try:

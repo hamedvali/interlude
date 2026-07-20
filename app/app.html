@@ -260,8 +260,6 @@
   @keyframes sayPulse { 0%,100%{ box-shadow:0 0 0 0 var(--violet-soft); } 50%{ box-shadow:0 0 0 6px var(--violet-soft); } }
   .flash .pos { font-style:italic; color:var(--ink-3); font-size:14px; }
   .fc-meta { display:flex; align-items:center; justify-content:center; gap:9px; flex-wrap:wrap; }
-  .fc-en { margin-top:12px; font-size:16px; line-height:1.4; color:var(--ink-2); max-width:420px; }
-  .fc-en b { color:var(--ink-1); font-weight:600; }
   .flash .def { font-size:20px; line-height:1.45; color:var(--ink-1); max-width:460px; }
   .flash .ex { font-size:14px; color:var(--ink-2); font-style:italic; max-width:460px; }
   .tag { display:inline-block; font-size:11px; padding:3px 12px; border-radius:999px;
@@ -997,7 +995,7 @@ function renderPractice(host){
     const el=$("#flash",host);
     el.innerHTML = flipped
       ? `${cur.pos?`<span class="tag">${escHtml(cur.pos)}</span>`:""}<div class="def">${escHtml(cur.def)}</div>${cur.ex?`<div class="ex">“${escHtml(cur.ex)}”</div>`:""}`
-      : `<span class="eyebrow">tap to reveal</span><div class="word-line"><span class="word">${escHtml(cur.word)}</span>${say}</div><div class="fc-meta">${cur.pos?`<span class="pos">${escHtml(cur.pos)}</span>`:""}${langBadge(cur.lang)}</div>${(cur.lang&&cur.lang!=="en"&&cur.def)?`<div class="fc-en">${langBadge("en")} <b>${escHtml(cur.def)}</b></div>`:""}`;
+      : `<span class="eyebrow">tap to reveal</span><div class="word-line"><span class="word">${escHtml(cur.word)}</span>${say}</div><div class="fc-meta">${cur.pos?`<span class="pos">${escHtml(cur.pos)}</span>`:""}${langBadge(cur.lang)}</div>`;
     const sb=$("#sayBtn",el);
     if(sb) sb.onclick=(e)=>{ e.stopPropagation(); speak(cur.word,sb,cur.lang); };   // don't flip the card
   };
