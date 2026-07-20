@@ -469,7 +469,8 @@
   .opt:disabled { cursor:default; }
   .letters { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:18px 0; }
   .lchip { width:40px; height:50px; border:1px solid var(--line); border-radius:11px; background:var(--surface-2);
-    display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:750; text-transform:uppercase; }
+    display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:750; text-transform:uppercase; transition:.14s; }
+  .lchip.used { opacity:.3; border-color:transparent; background:var(--surface-1); text-decoration:line-through; }
   .keyrow { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin:14px 0 4px; }
   .key-btn { min-width:31px; height:37px; padding:0 8px; border:1px solid var(--line); border-radius:9px;
     background:var(--surface-2); color:var(--ink-1); font:inherit; font-size:14px; font-weight:600;
@@ -958,7 +959,21 @@ function renderLearn(){
   else if(learnTab==="games") renderWordGames(body);
   else renderAnalytics(body);
 }
+// Practice is a "surprise me" surface: each time the user *enters* the tab it
+// randomly serves the flashcard or one of the word games, so practice never
+// feels like the same drill. Internal re-renders (answering a card, a game
+// advancing to the next word) stay on the chosen activity — only re-entering
+// Practice reshuffles. The Games tab remains the way to pick a specific game.
 function renderPractice(host){
+  if(!DECK.length){ host.innerHTML=deckEmptyCard("start practicing"); wireDeckEmpty(host); keyHandler=null; return; }
+  const pool=["flashcard", ...WORD_GAMES.map(g=>g.id)];
+  const pick=pool[Math.floor(Math.random()*pool.length)];
+  if(pick==="flashcard"){ renderFlashcard(host); return; }
+  const g=WORD_GAMES.find(x=>x.id===pick);
+  host.innerHTML=`<div class="card" id="pgame"></div>`;
+  g.mount($("#pgame",host));
+}
+function renderFlashcard(host){
   if(!DECK.length){ host.innerHTML=deckEmptyCard("start practicing"); wireDeckEmpty(host); keyHandler=null; return; }
   cur=pickWeighted(); flipped=false;
   const s=computeStats(); const box=(STATE.words[cur.word]?.box)||1;
@@ -1008,12 +1023,12 @@ function renderPractice(host){
   face();
   const flip=()=>{ flipped=!flipped; face(); };
   $("#flash",host).onclick=flip;
-  $("#got",host).onclick =()=>{ review(cur.word,true);  renderPractice(host); };
-  $("#miss",host).onclick=()=>{ review(cur.word,false); renderPractice(host); };
+  $("#got",host).onclick =()=>{ review(cur.word,true);  renderFlashcard(host); };
+  $("#miss",host).onclick=()=>{ review(cur.word,false); renderFlashcard(host); };
   keyHandler=(e)=>{
     if(e.key===" "||e.key==="Enter"){ e.preventDefault(); flip(); }
-    else if(e.key==="1"){ review(cur.word,false); renderPractice(host); }
-    else if(e.key==="2"){ review(cur.word,true);  renderPractice(host); }
+    else if(e.key==="1"){ review(cur.word,false); renderFlashcard(host); }
+    else if(e.key==="2"){ review(cur.word,true);  renderFlashcard(host); }
     else if(e.key==="p"||e.key==="P"){ e.preventDefault(); speak(cur.word,$("#sayBtn",host),cur.lang); }
   };
 }
@@ -1422,7 +1437,7 @@ function mountScramble(host){
   let letters=shuffle(c.word.split("")); if(letters.join("")===c.word&&c.word.length>1)[letters[0],letters[1]]=[letters[1],letters[0]];
   host.innerHTML=`<div class="center">
       <div class="muted">Unscramble the word ${langBadge(c.lang)}</div>
-      <div class="letters">${letters.map(l=>`<span class="lchip">${escHtml(l)}</span>`).join("")}</div>
+      <div class="letters" id="sletters">${letters.map(l=>`<span class="lchip">${escHtml(l)}</span>`).join("")}</div>
       <p class="def" style="font-size:16px;color:var(--ink-2);max-width:520px;margin:0 auto 14px">${escHtml(c.def)}</p>
       <input class="text" id="sinput" placeholder="type your answer" autocomplete="off" style="max-width:360px;margin:0 auto" />
       <div class="msg" id="smsg"></div>
@@ -1431,11 +1446,25 @@ function mountScramble(host){
         <button class="btn primary" id="scheck">Check</button>
       </div></div>`;
   const inp=$("#sinput",host);
+  const chips=Array.from(host.querySelectorAll("#sletters .lchip"));
+  // As the user types, cross off one letter chip for each correctly-placed
+  // character. We only dim while the input stays a correct prefix of the answer,
+  // so a wrong keystroke stops the crossing-off — a gentle "you slipped" hint.
+  const reflect=()=>{
+    const typed=inp.value.trim().toLowerCase();
+    let n=0; while(n<typed.length && n<c.word.length && typed[n]===c.word[n]) n++;
+    chips.forEach(ch=>ch.classList.remove("used"));
+    for(let k=0;k<n;k++){
+      const chip=chips.find(ch=>!ch.classList.contains("used") && ch.textContent.toLowerCase()===c.word[k]);
+      if(chip) chip.classList.add("used");
+    }
+  };
   const submit=()=>{ if(inp.value.trim().toLowerCase()===c.word){
       $("#smsg",host).innerHTML=`<span class="ok">${I.checkmini} ${c.word.toUpperCase()}</span> ${sayBtn("ssay")}`;
       wireSay(host,"ssay",c.word,c.lang); speak(c.word,$("#ssay",host),c.lang);   // hear it once solved
       review(c.word,true); bumpGame("scramble","wins"); setTimeout(()=>mountScramble(host),1400);
     } else $("#smsg",host).innerHTML=`<span class="no">Try again…</span>`; };
+  inp.oninput=reflect;
   inp.onkeydown=e=>{ if(e.key==="Enter") submit(); };
   $("#scheck",host).onclick=submit;
   $("#sskip",host).onclick=()=>{ review(c.word,false); mountScramble(host); };
@@ -1852,13 +1881,9 @@ function restoreNav(){
   if(SOCIAL.some(s=>s.id===nav.social)) socialSite=nav.social;
   if(ARCADE_GAMES.some(g=>g.id===nav.arcade)) arcadePlaying=nav.arcade;   // switchView clears this unless we land on Arcade
   const view=["learn","game","social","settings"].includes(nav.view)?nav.view:"learn";
-  // On open, don't drop the user onto the flashcard every time — surface a random
-  // word game for variety. Only overrides the Practice/Games landing; Words and
-  // Progress still restore as left, and clicking Practice mid-session is unaffected.
-  if(view==="learn" && (learnTab==="practice" || learnTab==="games")){
-    learnTab="games";
-    activeWordGame = WORD_GAMES[Math.floor(Math.random()*WORD_GAMES.length)].id;
-  }
+  // The Practice tab randomizes its own activity on entry (see renderPractice),
+  // so landing there on open already varies between flashcard and word games —
+  // no need to override the restored location here.
   switchView(view);
 }
 function switchView(v){
