@@ -18,7 +18,7 @@ exactly when it's time to read or reply.
 [![Made with Python](https://img.shields.io/badge/python-3-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-zero-2ea44f)](#-how-it-works)
 [![No Dock icon](https://img.shields.io/badge/dock%20icon-none-7C4DEB)](#-how-it-works)
-[![Version](https://img.shields.io/badge/version-1.25.0-7C4DEB)](#)
+[![Version](https://img.shields.io/badge/version-1.28.0-7C4DEB)](#)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 
 <br />
@@ -213,9 +213,9 @@ writes are atomic, so you'll never get a half-written file.
 
 Any word can show a picture as a visual memory aid — on the flashcard front, next to the word in the
 Definition Quiz, and on the reveal after you solve Scramble / Hangman / Wordle (never during play, so
-nothing is spoiled). Pictures are **opt-in per word**: paste an **image URL** (from any source) into
-a word's editor, and only that word gets a picture. Nothing is auto-fetched, so every image is one
-you chose and actually relevant to the word.
+nothing is spoiled). Pictures are **opt-in per word**: tap the small **🖼️ picture button** next to
+the word in any game (or the word's editor) and paste an **image URL** from any source. Only that word
+gets a picture. Nothing is auto-fetched, so every image is one you chose and actually relevant.
 
 <br />
 

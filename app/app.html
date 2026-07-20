@@ -266,6 +266,19 @@
   .word-img { display:block; max-width:260px; max-height:150px; width:auto; object-fit:cover;
     border-radius:12px; border:1px solid var(--line); background:var(--surface-2); }
   .word-img-slot.sm .word-img { max-height:96px; max-width:200px; }
+  .say.imgadd.has { color:var(--violet); border-color:var(--violet); }
+  /* picture popup (add / change a word's image URL) */
+  .modal-back { position:fixed; inset:0; z-index:1000; background:rgba(18,14,32,.5);
+    display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(2px); }
+  .modal { background:var(--frame); border:1px solid var(--line); border-radius:16px; padding:20px;
+    width:100%; max-width:380px; box-shadow:0 18px 50px rgba(0,0,0,.3); text-align:left; }
+  .modal-h { font-size:16px; font-weight:750; color:var(--ink-1); }
+  .modal-sub { font-size:12.5px; color:var(--ink-3); margin:4px 0 12px; line-height:1.45; }
+  .modal-prev { display:flex; justify-content:center; margin:12px 0 0; }
+  .modal-prev img { max-width:100%; max-height:150px; border-radius:11px; border:1px solid var(--line); }
+  .modal-row { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+  .modal-row .btn { flex:0 0 auto; }
+  .btn.ghost.danger { color:var(--danger); margin-right:auto; }
   /* type-in games: Context Gap, Dictation, Recall */
   .say.say-lg { width:56px; height:56px; margin:16px auto 0; }
   .say.say-lg svg { width:28px; height:28px; }
@@ -484,6 +497,19 @@
   .lchip { width:40px; height:50px; border:1px solid var(--line); border-radius:11px; background:var(--surface-2);
     display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:750; text-transform:uppercase; transition:.14s; }
   .lchip.used { opacity:.3; border-color:transparent; background:var(--surface-1); text-decoration:line-through; }
+  /* per-letter answer boxes (Scramble, Context Gap, Dictation, Recall) */
+  .lboxes { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:18px auto; max-width:520px; }
+  .lbox { width:42px; height:52px; border:1.5px solid var(--line); border-radius:11px; background:var(--surface-2);
+    text-align:center; font:inherit; font-size:22px; font-weight:750; text-transform:uppercase; color:var(--ink-1);
+    padding:0; outline:none; caret-color:var(--violet); transition:border-color .14s, box-shadow .14s, background .2s, color .2s; }
+  .lbox:focus { border-color:var(--violet); box-shadow:0 0 0 3px var(--violet-soft); }
+  .lbox.ok   { background:var(--good); border-color:var(--good); color:#fff; }
+  .lbox.bad  { background:var(--danger); border-color:var(--danger); color:#fff; animation:lboxShake .3s; }
+  .lbox.lock { background:var(--good-soft); border-color:var(--good); color:var(--good); }
+  .lbox-space { width:14px; }
+  .lbox-sep { min-width:16px; display:flex; align-items:flex-end; justify-content:center; padding-bottom:8px;
+    font-size:22px; font-weight:750; color:var(--ink-3); }
+  @keyframes lboxShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
   .keyrow { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin:14px 0 4px; }
   .key-btn { min-width:31px; height:37px; padding:0 8px; border:1px solid var(--line); border-radius:9px;
     background:var(--surface-2); color:var(--ink-1); font:inherit; font-size:14px; font-weight:600;
@@ -647,6 +673,8 @@
     .opt { padding:12px 13px; font-size:14px; margin:7px 0; }
     .letters { gap:6px; margin:14px 0; }
     .lchip { width:33px; height:43px; font-size:19px; }
+    .lboxes { gap:6px; margin:14px auto; }
+    .lbox { width:34px; height:44px; font-size:19px; }
     .grid-guess { gap:5px; }
     .gcell { width:38px; height:38px; font-size:17px; }
     input.text { font-size:15px; }
@@ -842,6 +870,66 @@ function fillWordImage(host, id, rec){
   const slot=$("#"+id, host); if(!slot || !rec || !rec.img) return;
   slot.innerHTML=`<figure class="word-img-fig"><img class="word-img" src="${escHtml(rec.img)}" alt="" loading="lazy" onerror="this.closest('.word-img-fig').remove()"></figure>`;
 }
+// A small round "add / change picture" button, placed next to the word wherever
+// a word is shown. Tapping it opens a popup to paste an image URL for that word.
+function imgAddBtn(id, has){ return `<button class="say say-sm imgadd${has?' has':''}" id="${id}" type="button" title="${has?'Change':'Add'} a picture" aria-label="${has?'Change':'Add'} a picture">${I.image}</button>`; }
+// Persist a per-word image URL onto the live deck record (rec is a reference into
+// DECK), then save. Passing "" clears it.
+function setWordImg(rec, url){
+  url=(url||"").trim(); rec.img=url;
+  const d=DECK.find(x=>x.word===rec.word && (x.lang||"")===(rec.lang||""));
+  if(d) d.img=url;
+  save();
+}
+// Wire an imgAddBtn: opens the picture popup for `rec`; on save it persists and
+// refreshes both the button state and (if given) the word's image slot in-place.
+function wireAddImg(host, btnId, rec, slotId){
+  const b=$("#"+btnId, host); if(!b) return;
+  b.onclick=(e)=>{ e.stopPropagation();
+    openImgDialog(rec, ()=>{
+      b.classList.toggle("has", !!rec.img);
+      b.title=(rec.img?"Change":"Add")+" a picture";
+      if(slotId){ const s=$("#"+slotId, host); if(s){ s.innerHTML=""; fillWordImage(host, slotId, rec); } }
+    });
+  };
+}
+// Auto-advance to the next round is routed through here so the picture popup can
+// hold it open while you paste a URL, instead of the reveal jumping away.
+let advanceT=null, advanceFn=null;
+function scheduleAdvance(fn, ms){ advanceFn=fn; clearTimeout(advanceT); advanceT=setTimeout(()=>{ advanceFn=null; fn(); }, ms); }
+// A centered popup to set / change / remove a word's picture URL, with a live
+// preview. Pauses any pending auto-advance while open and resumes it on close.
+function openImgDialog(rec, onSaved){
+  const old=$("#imgDlg"); if(old) old.remove();
+  clearTimeout(advanceT);                        // hold the auto-advance while open
+  const pending=advanceFn; advanceFn=null;
+  const wrap=document.createElement("div"); wrap.id="imgDlg"; wrap.className="modal-back";
+  wrap.innerHTML=`<div class="modal">
+      <div class="modal-h">Picture for “${escHtml(rec.word)}”</div>
+      <p class="modal-sub">Paste an image URL from anywhere — it shows as a memory aid whenever this word comes up.</p>
+      <input class="finput" id="imgDlgUrl" type="text" autocomplete="off" spellcheck="false" placeholder="https://…" value="${escHtml(rec.img||"")}">
+      <div id="imgDlgPrev" class="modal-prev"></div>
+      <div class="modal-row">
+        ${rec.img?`<button class="btn ghost danger" id="imgDlgRemove">Remove</button>`:""}
+        <button class="btn ghost" id="imgDlgCancel">Cancel</button>
+        <button class="btn primary" id="imgDlgSave">Save</button>
+      </div></div>`;
+  document.body.appendChild(wrap);
+  const url=$("#imgDlgUrl",wrap), prev=$("#imgDlgPrev",wrap);
+  const showPrev=()=>{ const v=url.value.trim(); prev.innerHTML=v?`<img src="${escHtml(v)}" alt="" onerror="this.style.display='none'">`:""; };
+  showPrev(); url.addEventListener("input", showPrev);
+  const close=()=>{ wrap.remove(); document.removeEventListener("keydown", onKey, true);
+    if(pending) scheduleAdvance(pending, 1500); };   // resume, leaving time to see the result
+  const commit=val=>{ setWordImg(rec, val); if(onSaved) onSaved(); close(); };
+  const onKey=e=>{ if(e.key==="Escape"){ e.preventDefault(); close(); }
+    else if(e.key==="Enter" && e.target===url){ e.preventDefault(); commit(url.value); } };
+  document.addEventListener("keydown", onKey, true);
+  wrap.onclick=e=>{ if(e.target===wrap) close(); };
+  $("#imgDlgSave",wrap).onclick=()=>commit(url.value);
+  $("#imgDlgCancel",wrap).onclick=close;
+  const rm=$("#imgDlgRemove",wrap); if(rm) rm.onclick=()=>commit("");
+  setTimeout(()=>url.focus(), 30);
+}
 
 const I = {
   flame:`<svg class="icon" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/></svg>`,
@@ -884,6 +972,7 @@ Object.assign(I, {
   pencil:`<svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,
   trash:`<svg class="icon" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"/><path d="M10 11v6M14 11v6"/></svg>`,
   x:`<svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>`,
+  image:`<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15.5 16 10 5 21"/></svg>`,
   layers:`<svg class="icon" viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></svg>`,
 });
 const HERO_ART = `<svg viewBox="0 0 220 150" width="220" height="150" fill="none" aria-hidden="true">
@@ -1040,10 +1129,10 @@ function renderFlashcard(host){
     const el=$("#flash",host);
     el.innerHTML = flipped
       ? `${cur.pos?`<span class="tag">${escHtml(cur.pos)}</span>`:""}<div class="def">${escHtml(cur.def)}</div>${cur.ex?`<div class="ex">“${escHtml(cur.ex)}”</div>`:""}`
-      : `<span class="eyebrow">tap to reveal</span>${imgSlot("fcImg")}<div class="word-line"><span class="word">${escHtml(cur.word)}</span>${say}</div><div class="fc-meta">${cur.pos?`<span class="pos">${escHtml(cur.pos)}</span>`:""}${langBadge(cur.lang)}</div>`;
+      : `<span class="eyebrow">tap to reveal</span>${imgSlot("fcImg")}<div class="word-line"><span class="word">${escHtml(cur.word)}</span>${say}${imgAddBtn("fcImgBtn",!!cur.img)}</div><div class="fc-meta">${cur.pos?`<span class="pos">${escHtml(cur.pos)}</span>`:""}${langBadge(cur.lang)}</div>`;
     const sb=$("#sayBtn",el);
     if(sb) sb.onclick=(e)=>{ e.stopPropagation(); speak(cur.word,sb,cur.lang); };   // don't flip the card
-    if(!flipped) fillWordImage(el,"fcImg",cur);   // picture on the word side only
+    if(!flipped){ fillWordImage(el,"fcImg",cur); wireAddImg(el,"fcImgBtn",cur,"fcImg"); }   // picture on the word side only
   };
   face();
   const flip=()=>{ flipped=!flipped; face(); };
@@ -1441,12 +1530,13 @@ function mountQuiz(host){
   host.innerHTML=`
       <div class="muted">What does this word mean?</div>
       <div class="prompt-word">${escHtml(c.word)}</div>
-      <div class="prompt-meta">${c.pos?`<span class="pos" style="font-style:italic;color:var(--ink-3)">${escHtml(c.pos)}</span>`:""}${langBadge(c.lang)}${sayBtn("qsay")}</div>
+      <div class="prompt-meta">${c.pos?`<span class="pos" style="font-style:italic;color:var(--ink-3)">${escHtml(c.pos)}</span>`:""}${langBadge(c.lang)}${sayBtn("qsay")}${imgAddBtn("qimgbtn",!!c.img)}</div>
       ${imgSlot("qImg","sm")}
       <div id="opts"></div>
       <div class="msg" id="qmsg"></div>`;
   wireSay(host,"qsay",c.word,c.lang);
   fillWordImage(host,"qImg",c);
+  wireAddImg(host,"qimgbtn",c,"qImg");
   const box=$("#opts",host);
   opts.forEach((o,i)=>{
     const b=document.createElement("button"); b.className="opt";
@@ -1460,48 +1550,47 @@ function mountQuiz(host){
     else { b.classList.add("wrong");
       box.querySelectorAll(".opt").forEach(x=>{ if(x.textContent.includes(c.def)) x.classList.add("correct"); });
       $("#qmsg",host).innerHTML=`<span class="no">Not quite.</span> ${escHtml(c.word)} — ${escHtml(c.def)}`; review(c.word,false); }
-    keyHandler=null; setTimeout(()=>mountQuiz(host), o.ok?950:1900);
+    keyHandler=null; scheduleAdvance(()=>mountQuiz(host), o.ok?950:1900);
   }
   keyHandler=(e)=>{ const n=parseInt(e.key); if(n>=1&&n<=opts.length){ const b=box.children[n-1]; if(b&&!b.disabled) b.click(); } };
 }
 
 function mountScramble(host){
+  keyHandler=null;
   const c=pickWeighted();
   let letters=shuffle(c.word.split("")); if(letters.join("")===c.word&&c.word.length>1)[letters[0],letters[1]]=[letters[1],letters[0]];
   host.innerHTML=`<div class="center">
       <div class="muted">Unscramble the word ${langBadge(c.lang)}</div>
       <div class="letters" id="sletters">${letters.map(l=>`<span class="lchip">${escHtml(l)}</span>`).join("")}</div>
       <p class="def" style="font-size:16px;color:var(--ink-2);max-width:520px;margin:0 auto 14px">${escHtml(c.def)}</p>
-      <input class="text" id="sinput" placeholder="type your answer" autocomplete="off" style="max-width:360px;margin:0 auto" />
+      <div id="sboxes"></div>
       <div class="msg" id="smsg"></div>
       <div class="row" style="max-width:360px;margin:14px auto 0">
         <button class="btn ghost" id="sskip">Skip</button>
-        <button class="btn primary" id="scheck">Check</button>
       </div></div>`;
-  const inp=$("#sinput",host);
   const chips=Array.from(host.querySelectorAll("#sletters .lchip"));
-  // As the user types, cross off one letter chip for each correctly-placed
-  // character. We only dim while the input stays a correct prefix of the answer,
-  // so a wrong keystroke stops the crossing-off — a gentle "you slipped" hint.
-  const reflect=()=>{
-    const typed=inp.value.trim().toLowerCase();
-    let n=0; while(n<typed.length && n<c.word.length && typed[n]===c.word[n]) n++;
+  // Dim one scramble chip for each correctly-placed letter typed so far — but
+  // only while the typed string stays a correct prefix of the answer, so a wrong
+  // keystroke stops the crossing-off (a gentle "you slipped" cue).
+  const reflect=typed=>{
+    typed=(typed||"").toLowerCase();
+    let n=0; while(n<typed.length && n<c.word.length && typed[n]===c.word[n].toLowerCase()) n++;
     chips.forEach(ch=>ch.classList.remove("used"));
     for(let k=0;k<n;k++){
-      const chip=chips.find(ch=>!ch.classList.contains("used") && ch.textContent.toLowerCase()===c.word[k]);
+      const chip=chips.find(ch=>!ch.classList.contains("used") && ch.textContent.toLowerCase()===c.word[k].toLowerCase());
       if(chip) chip.classList.add("used");
     }
   };
-  const submit=()=>{ if(inp.value.trim().toLowerCase()===c.word){
-      $("#smsg",host).innerHTML=`<div><span class="ok">${I.checkmini} ${c.word.toUpperCase()}</span> ${sayBtn("ssay")}</div>${imgSlot("simg","sm")}`;
-      wireSay(host,"ssay",c.word,c.lang); speak(c.word,$("#ssay",host),c.lang); fillWordImage(host,"simg",c);   // hear + see it once solved
-      review(c.word,true); bumpGame("scramble","wins"); setTimeout(()=>mountScramble(host),1400);
-    } else $("#smsg",host).innerHTML=`<span class="no">Try again…</span>`; };
-  inp.oninput=reflect;
-  inp.onkeydown=e=>{ if(e.key==="Enter") submit(); };
-  $("#scheck",host).onclick=submit;
+  letterInputs(host,"sboxes",c.word,{
+    onType:reflect,
+    onWin:()=>{
+      $("#smsg",host).innerHTML=`<div><span class="ok">${I.checkmini} ${escHtml(c.word.toUpperCase())}</span> ${sayBtn("ssay")}${imgAddBtn("simgbtn",!!c.img)}</div>${imgSlot("simg","sm")}`;
+      wireSay(host,"ssay",c.word,c.lang); speak(c.word,$("#ssay",host),c.lang); fillWordImage(host,"simg",c); wireAddImg(host,"simgbtn",c,"simg");   // hear + see it once solved
+      review(c.word,true); bumpGame("scramble","wins"); scheduleAdvance(()=>mountScramble(host),1400);
+    },
+    onMiss:()=>{ $("#smsg",host).innerHTML=`<span class="no">Not quite — the green letters stay, retype the rest.</span>`; }
+  });
   $("#sskip",host).onclick=()=>{ review(c.word,false); mountScramble(host); };
-  setTimeout(()=>inp.focus(),30);
 }
 
 function mountHangman(host){
@@ -1517,8 +1606,8 @@ function mountHangman(host){
       <div class="keyrow" id="keys">${"abcdefghijklmnopqrstuvwxyz".split("").map(l=>
         `<button class="key-btn" data-l="${l}" ${guessed.has(l)?"disabled":""}>${l}</button>`).join("")}</div>
       <div class="msg center" id="hmsg"></div></div>`;
-    if(won){ $("#hmsg",host).innerHTML=`<div><span class="ok">Nice — you got it.</span> ${sayBtn("hsay")}</div>${imgSlot("himg","sm")}`; wireSay(host,"hsay",c.word,c.lang); speak(c.word,$("#hsay",host),c.lang); fillWordImage(host,"himg",c); review(c.word,true); bumpGame("hangman","wins"); setTimeout(()=>mountHangman(host),1900); return; }
-    if(lost){ $("#hmsg",host).innerHTML=`<div><span class="no">The word was “${escHtml(word)}”.</span> ${sayBtn("hsay")}</div>${imgSlot("himg","sm")}`; wireSay(host,"hsay",c.word,c.lang); speak(c.word,$("#hsay",host),c.lang); fillWordImage(host,"himg",c); review(c.word,false); setTimeout(()=>mountHangman(host),2400); return; }
+    if(won){ $("#hmsg",host).innerHTML=`<div><span class="ok">Nice — you got it.</span> ${sayBtn("hsay")}${imgAddBtn("himgbtn",!!c.img)}</div>${imgSlot("himg","sm")}`; wireSay(host,"hsay",c.word,c.lang); speak(c.word,$("#hsay",host),c.lang); fillWordImage(host,"himg",c); wireAddImg(host,"himgbtn",c,"himg"); review(c.word,true); bumpGame("hangman","wins"); scheduleAdvance(()=>mountHangman(host),1900); return; }
+    if(lost){ $("#hmsg",host).innerHTML=`<div><span class="no">The word was “${escHtml(word)}”.</span> ${sayBtn("hsay")}${imgAddBtn("himgbtn",!!c.img)}</div>${imgSlot("himg","sm")}`; wireSay(host,"hsay",c.word,c.lang); speak(c.word,$("#hsay",host),c.lang); fillWordImage(host,"himg",c); wireAddImg(host,"himgbtn",c,"himg"); review(c.word,false); scheduleAdvance(()=>mountHangman(host),2400); return; }
     host.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{ const l=b.dataset.l; guessed.add(l); if(!word.includes(l)) wrong++; draw(); });
   };
   draw();
@@ -1550,22 +1639,81 @@ function mountWordle(host){
   const tryGuess=g=>{
     if(g.length!==N){ $("#wmsg",host).innerHTML=`<span class="no">Needs ${N} letters.</span>`; return; }
     rows.push(g);
-    if(g===word){ done=true; render(); $("#wmsg",host).innerHTML=`<div><span class="ok">Solved in ${rows.length}.</span> ${sayBtn("wsay")}</div>${imgSlot("wimg","sm")}`;
-      wireSay(host,"wsay",c.word,c.lang); speak(c.word,$("#wsay",host),c.lang); fillWordImage(host,"wimg",c);
-      review(c.word,true); bumpGame("wordle","wins"); bumpGame("wordle","best",MAX-rows.length+1); setTimeout(()=>mountWordle(host),2000); return; }
-    if(rows.length>=MAX){ done=true; render(); $("#wmsg",host).innerHTML=`<div><span class="no">It was “${word}”.</span> ${sayBtn("wsay")}</div>${imgSlot("wimg","sm")}`; wireSay(host,"wsay",c.word,c.lang); speak(c.word,$("#wsay",host),c.lang); fillWordImage(host,"wimg",c); review(c.word,false); setTimeout(()=>mountWordle(host),2600); return; }
+    if(g===word){ done=true; render(); $("#wmsg",host).innerHTML=`<div><span class="ok">Solved in ${rows.length}.</span> ${sayBtn("wsay")}${imgAddBtn("wimgbtn",!!c.img)}</div>${imgSlot("wimg","sm")}`;
+      wireSay(host,"wsay",c.word,c.lang); speak(c.word,$("#wsay",host),c.lang); fillWordImage(host,"wimg",c); wireAddImg(host,"wimgbtn",c,"wimg");
+      review(c.word,true); bumpGame("wordle","wins"); bumpGame("wordle","best",MAX-rows.length+1); scheduleAdvance(()=>mountWordle(host),2000); return; }
+    if(rows.length>=MAX){ done=true; render(); $("#wmsg",host).innerHTML=`<div><span class="no">It was “${word}”.</span> ${sayBtn("wsay")}${imgAddBtn("wimgbtn",!!c.img)}</div>${imgSlot("wimg","sm")}`; wireSay(host,"wsay",c.word,c.lang); speak(c.word,$("#wsay",host),c.lang); fillWordImage(host,"wimg",c); wireAddImg(host,"wimgbtn",c,"wimg"); review(c.word,false); scheduleAdvance(()=>mountWordle(host),2600); return; }
     render();
   };
   render();
+}
+
+// A row of single-character boxes — one per letter of `answer`. Focus
+// auto-advances as you type and Backspace walks back; when every box is filled
+// we evaluate and flip each box green/red one at a time (the reveal). All correct
+// → opts.onWin(); otherwise the wrong boxes clear for another try, the correct
+// ones lock green, and opts.onMiss() fires. Spaces / hyphens become fixed
+// separators so multi-word and hyphenated answers still line up. opts.onType(cur)
+// fires on every keystroke with the current string (used by Scramble's chips).
+function letterInputs(host, slotId, answer, opts){
+  opts=opts||{};
+  const slot=$("#"+slotId,host); if(!slot) return null;
+  const chars=[...answer];
+  const isL=ch=>/[A-Za-zÀ-ɏ]/.test(ch);
+  slot.className="lboxes";
+  slot.innerHTML=chars.map((ch,i)=> isL(ch)
+      ? `<input class="lbox" data-i="${i}" maxlength="1" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="letter ${i+1}">`
+      : (ch.trim()==="" ? `<span class="lbox-space"></span>` : `<span class="lbox-sep">${escHtml(ch)}</span>`)
+    ).join("");
+  const boxes=Array.from(slot.querySelectorAll(".lbox"));
+  if(!boxes.length) return null;
+  const norm=s=>(s||"").toLowerCase();
+  const at=b=>boxes.indexOf(b);
+  const cur=()=>{ const m={}; boxes.forEach(b=>m[+b.dataset.i]=b.value);
+    return chars.map((ch,i)=> isL(ch)?(m[i]||""):ch).join(""); };
+  const firstEmpty=()=>boxes.find(b=>!b.disabled && !b.value);
+  const evaluate=()=>{
+    boxes.forEach(b=>b.disabled=true);
+    let allOk=true;
+    boxes.forEach((b,k)=>{ const ok=norm(b.value)===norm(chars[+b.dataset.i]); if(!ok)allOk=false;
+      setTimeout(()=>{ b.classList.remove("lock"); b.classList.add(ok?"ok":"bad"); }, k*110); });
+    const after=boxes.length*110+300;
+    if(allOk){ setTimeout(()=>opts.onWin&&opts.onWin(), after); return; }
+    setTimeout(()=>{
+      boxes.forEach(b=>{ const ok=norm(b.value)===norm(chars[+b.dataset.i]);
+        if(ok){ b.classList.remove("ok","bad"); b.classList.add("lock"); b.disabled=true; }
+        else { b.value=""; b.classList.remove("ok","bad"); b.disabled=false; } });
+      if(opts.onType) opts.onType(cur());
+      if(opts.onMiss) opts.onMiss();
+      const fe=firstEmpty(); if(fe) fe.focus();
+    }, after+540);
+  };
+  const maybeFull=()=>{ if(boxes.every(b=>b.disabled || b.value.trim()!=="")) evaluate(); };
+  boxes.forEach(b=>{
+    b.addEventListener("input",()=>{
+      b.value=b.value.replace(/[^A-Za-zÀ-ɏ]/g,"").slice(0,1);
+      if(b.value){ const nx=boxes[at(b)+1]; if(nx&&!nx.disabled) nx.focus(); }
+      if(opts.onType) opts.onType(cur());
+      maybeFull();
+    });
+    b.addEventListener("keydown",e=>{
+      if(e.key==="Backspace" && !b.value){ const pv=boxes[at(b)-1]; if(pv){ e.preventDefault(); pv.focus(); pv.value=""; if(opts.onType) opts.onType(cur()); } }
+      else if(e.key==="ArrowLeft"){ e.preventDefault(); const pv=boxes[at(b)-1]; if(pv) pv.focus(); }
+      else if(e.key==="ArrowRight"){ e.preventDefault(); const nx=boxes[at(b)+1]; if(nx) nx.focus(); }
+      else if(e.key==="Enter"){ e.preventDefault(); maybeFull(); }
+    });
+  });
+  setTimeout(()=>boxes[0].focus(),30);
+  return { focus:()=>boxes[0].focus(), value:cur };
 }
 
 // Shared success reveal for the type-in word games (Context Gap, Dictation,
 // Recall): confirm the word, speak it, show its picture, credit the win, then
 // queue the next round. Mirrors the reveal used by Scramble/Wordle.
 function typeWin(host, c, msgSel, gameId, remount){
-  $(msgSel,host).innerHTML=`<div><span class="ok">${I.checkmini} ${escHtml(c.word.toUpperCase())}</span> ${sayBtn("twsay")}</div>${imgSlot("twimg","sm")}`;
-  wireSay(host,"twsay",c.word,c.lang); speak(c.word,$("#twsay",host),c.lang); fillWordImage(host,"twimg",c);
-  review(c.word,true); bumpGame(gameId,"wins"); keyHandler=null; setTimeout(remount,1500);
+  $(msgSel,host).innerHTML=`<div><span class="ok">${I.checkmini} ${escHtml(c.word.toUpperCase())}</span> ${sayBtn("twsay")}${imgAddBtn("twimgbtn",!!c.img)}</div>${imgSlot("twimg","sm")}`;
+  wireSay(host,"twsay",c.word,c.lang); speak(c.word,$("#twsay",host),c.lang); fillWordImage(host,"twimg",c); wireAddImg(host,"twimgbtn",c,"twimg");
+  review(c.word,true); bumpGame(gameId,"wins"); keyHandler=null; scheduleAdvance(remount,1500);
 }
 
 // Context Gap — a cloze: blank the word out of its own example sentence and have
@@ -1588,20 +1736,16 @@ function mountCloze(host){
       <div class="muted">Fill in the missing word ${langBadge(c.lang)}</div>
       <p class="cloze-sent">${sentence}</p>
       ${c.def?`<p class="cloze-hint"><em>${escHtml(c.def)}</em></p>`:""}
-      <input class="text" id="cinput" placeholder="type the word" autocomplete="off" style="max-width:360px;margin:0 auto"/>
+      <div id="cboxes"></div>
       <div class="msg" id="cmsg"></div>
       <div class="row" style="max-width:360px;margin:14px auto 0">
         <button class="btn ghost" id="cskip">Skip</button>
-        <button class="btn primary" id="ccheck">Check</button>
       </div></div>`;
-  const inp=$("#cinput",host);
-  const submit=()=>{ const v=inp.value.trim().toLowerCase();
-    if(v && (v===c.word.toLowerCase() || v===hit.toLowerCase())) typeWin(host,c,"#cmsg","cloze",()=>mountCloze(host));
-    else $("#cmsg",host).innerHTML=`<span class="no">Try again…</span>`; };
-  inp.onkeydown=e=>{ if(e.key==="Enter") submit(); };
-  $("#ccheck",host).onclick=submit;
+  letterInputs(host,"cboxes",hit,{   // the exact form blanked from the sentence
+    onWin:()=>typeWin(host,c,"#cmsg","cloze",()=>mountCloze(host)),
+    onMiss:()=>{ $("#cmsg",host).innerHTML=`<span class="no">Not quite — try the red letters again.</span>`; }
+  });
   $("#cskip",host).onclick=()=>{ review(c.word,false); mountCloze(host); };
-  setTimeout(()=>inp.focus(),30);
 }
 
 // Dictation — hear the word (TTS) and type what you hear. Productive spelling
@@ -1613,21 +1757,18 @@ function mountDictate(host){
       <div class="muted">Type the word you hear ${langBadge(c.lang)}</div>
       <button class="say say-lg" id="dsay" type="button" title="Play again" aria-label="Play again">${I.volume}</button>
       ${c.def?`<p class="cloze-hint"><em>${escHtml(c.def)}</em></p>`:""}
-      <input class="text" id="dinput" placeholder="type what you hear" autocomplete="off" style="max-width:360px;margin:14px auto 0"/>
+      <div id="dboxes"></div>
       <div class="msg" id="dmsg"></div>
       <div class="row" style="max-width:360px;margin:14px auto 0">
         <button class="btn ghost" id="dskip">Skip</button>
-        <button class="btn primary" id="dcheck">Check</button>
       </div></div>`;
-  const inp=$("#dinput",host);
   wireSay(host,"dsay",c.word,c.lang);
   speak(c.word,$("#dsay",host),c.lang);      // play once on mount
-  const submit=()=>{ if(inp.value.trim().toLowerCase()===c.word.toLowerCase()) typeWin(host,c,"#dmsg","dictate",()=>mountDictate(host));
-    else $("#dmsg",host).innerHTML=`<span class="no">Try again…</span>`; };
-  inp.onkeydown=e=>{ if(e.key==="Enter") submit(); };
-  $("#dcheck",host).onclick=submit;
+  letterInputs(host,"dboxes",c.word,{
+    onWin:()=>typeWin(host,c,"#dmsg","dictate",()=>mountDictate(host)),
+    onMiss:()=>{ $("#dmsg",host).innerHTML=`<span class="no">Not quite — listen again and fix the red letters.</span>`; }
+  });
   $("#dskip",host).onclick=()=>{ review(c.word,false); mountDictate(host); };
-  setTimeout(()=>inp.focus(),30);
 }
 
 // Recall — the hardest, strongest retrieval form: shown the definition, produce
@@ -1639,21 +1780,16 @@ function mountRecall(host){
       <div class="muted">What word means this? ${langBadge(c.lang)}</div>
       <p class="recall-def">${escHtml(c.def)}</p>
       ${c.pos?`<div class="prompt-meta"><span class="pos" style="font-style:italic;color:var(--ink-3)">${escHtml(c.pos)}</span></div>`:""}
-      <input class="text" id="rinput" placeholder="type the word" autocomplete="off" style="max-width:360px;margin:0 auto"/>
+      <div id="rboxes"></div>
       <div class="msg" id="rmsg"></div>
       <div class="row" style="max-width:360px;margin:14px auto 0">
         <button class="btn ghost" id="rskip">Reveal</button>
-        <button class="btn primary" id="rcheck">Check</button>
       </div></div>`;
-  const inp=$("#rinput",host);
-  let misses=0;
-  const submit=()=>{ if(inp.value.trim().toLowerCase()===c.word.toLowerCase()) typeWin(host,c,"#rmsg","recall",()=>mountRecall(host));
-    else { misses++; const hint=` Starts with “<b>${escHtml(c.word[0])}</b>”, ${c.word.replace(/\s/g,"").length} letters.`;
-      $("#rmsg",host).innerHTML=`<span class="no">Not quite.</span>${misses>=1?hint:""}`; } };
-  inp.onkeydown=e=>{ if(e.key==="Enter") submit(); };
-  $("#rcheck",host).onclick=submit;
-  $("#rskip",host).onclick=()=>{ $("#rmsg",host).innerHTML=`<span class="no">It was “${escHtml(c.word)}”.</span>`; review(c.word,false); keyHandler=null; setTimeout(()=>mountRecall(host),1600); };
-  setTimeout(()=>inp.focus(),30);
+  letterInputs(host,"rboxes",c.word,{
+    onWin:()=>typeWin(host,c,"#rmsg","recall",()=>mountRecall(host)),
+    onMiss:()=>{ $("#rmsg",host).innerHTML=`<span class="no">Not quite — the green letters are right.</span>`; }
+  });
+  $("#rskip",host).onclick=()=>{ $("#rmsg",host).innerHTML=`<div><span class="no">It was “${escHtml(c.word)}”.</span> ${imgAddBtn("rimgbtn",!!c.img)}</div>${imgSlot("rimg","sm")}`; wireAddImg(host,"rimgbtn",c,"rimg"); review(c.word,false); keyHandler=null; scheduleAdvance(()=>mountRecall(host),1600); };
 }
 
 /* ---------------- PROGRESS ---------------- */
