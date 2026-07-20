@@ -254,6 +254,8 @@
   .say { width:38px; height:38px; border-radius:50%; border:1px solid var(--line); background:var(--surface-2);
     color:var(--violet); display:grid; place-items:center; cursor:pointer; transition:.14s; flex:0 0 auto; }
   .say svg { width:19px; height:19px; }
+  .say.say-sm { width:30px; height:30px; }
+  .say.say-sm svg { width:15px; height:15px; }
   .say:hover { background:var(--violet-soft); border-color:transparent; }
   .say:active { transform:scale(.93); }
   .say.speaking { background:var(--violet); color:#fff; border-color:transparent; animation:sayPulse 1s ease-in-out infinite; }
@@ -811,6 +813,10 @@ function speakLocal(text, btn, lang){
     synth.speak(u);
   }catch(e){}
 }
+// A small round speaker button that reads a word aloud, reused across the word
+// games. `id` must be unique within the mounted game so wireSay can find it.
+function sayBtn(id){ return `<button class="say say-sm" id="${id}" type="button" title="Hear pronunciation" aria-label="Hear pronunciation">${I.volume}</button>`; }
+function wireSay(host, id, word, lang){ const b=$("#"+id, host); if(b) b.onclick=(e)=>{ e.stopPropagation(); speak(word, b, lang); }; }
 
 const I = {
   flame:`<svg class="icon" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/></svg>`,
@@ -1369,22 +1375,30 @@ function bumpGame(id,key,val){
 
 function mountQuiz(host){
   const c=pickWeighted();
-  // Custom words may carry fewer than three decoys — top up from other words'
-  // definitions so the quiz always offers a real multiple choice.
-  let ds=(c.distractors||[]).slice();
+  // Draw decoys from OTHER words' real definitions so every option reads like a
+  // genuine, similarly-detailed definition. The curated `distractors` tend to be
+  // short one-liners, which made the correct (fuller) definition obvious by
+  // length alone — so prefer real defs and fall back to distractors only when the
+  // deck is too small to fill three choices.
+  let ds=[];
+  for(const d of shuffle(DECK)){
+    if(ds.length>=3) break;
+    if(d.word!==c.word && d.def && d.def!==c.def && !ds.includes(d.def)) ds.push(d.def);
+  }
   if(ds.length<3){
-    for(const d of shuffle(DECK)){
+    for(const d of (c.distractors||[])){
       if(ds.length>=3) break;
-      if(d.word!==c.word && d.def && d.def!==c.def && !ds.includes(d.def)) ds.push(d.def);
+      if(d && d!==c.def && !ds.includes(d)) ds.push(d);
     }
   }
   const opts=shuffle([{t:c.def,ok:true}, ...ds.slice(0,3).map(d=>({t:d,ok:false}))]);
   host.innerHTML=`
       <div class="muted">What does this word mean?</div>
       <div class="prompt-word">${escHtml(c.word)}</div>
-      <div class="prompt-meta">${c.pos?`<span class="pos" style="font-style:italic;color:var(--ink-3)">${escHtml(c.pos)}</span>`:""}${langBadge(c.lang)}</div>
+      <div class="prompt-meta">${c.pos?`<span class="pos" style="font-style:italic;color:var(--ink-3)">${escHtml(c.pos)}</span>`:""}${langBadge(c.lang)}${sayBtn("qsay")}</div>
       <div id="opts"></div>
       <div class="msg" id="qmsg"></div>`;
+  wireSay(host,"qsay",c.word,c.lang);
   const box=$("#opts",host);
   opts.forEach((o,i)=>{
     const b=document.createElement("button"); b.className="opt";
@@ -1418,8 +1432,9 @@ function mountScramble(host){
       </div></div>`;
   const inp=$("#sinput",host);
   const submit=()=>{ if(inp.value.trim().toLowerCase()===c.word){
-      $("#smsg",host).innerHTML=`<span class="ok">${I.checkmini} ${c.word.toUpperCase()}</span>`;
-      review(c.word,true); bumpGame("scramble","wins"); setTimeout(()=>mountScramble(host),1000);
+      $("#smsg",host).innerHTML=`<span class="ok">${I.checkmini} ${c.word.toUpperCase()}</span> ${sayBtn("ssay")}`;
+      wireSay(host,"ssay",c.word,c.lang); speak(c.word,$("#ssay",host),c.lang);   // hear it once solved
+      review(c.word,true); bumpGame("scramble","wins"); setTimeout(()=>mountScramble(host),1400);
     } else $("#smsg",host).innerHTML=`<span class="no">Try again…</span>`; };
   inp.onkeydown=e=>{ if(e.key==="Enter") submit(); };
   $("#scheck",host).onclick=submit;
@@ -1440,8 +1455,8 @@ function mountHangman(host){
       <div class="keyrow" id="keys">${"abcdefghijklmnopqrstuvwxyz".split("").map(l=>
         `<button class="key-btn" data-l="${l}" ${guessed.has(l)?"disabled":""}>${l}</button>`).join("")}</div>
       <div class="msg center" id="hmsg"></div></div>`;
-    if(won){ $("#hmsg",host).innerHTML=`<span class="ok">Nice — you got it.</span>`; review(c.word,true); bumpGame("hangman","wins"); setTimeout(()=>mountHangman(host),1400); return; }
-    if(lost){ $("#hmsg",host).innerHTML=`<span class="no">The word was “${escHtml(word)}”.</span>`; review(c.word,false); setTimeout(()=>mountHangman(host),2000); return; }
+    if(won){ $("#hmsg",host).innerHTML=`<span class="ok">Nice — you got it.</span> ${sayBtn("hsay")}`; wireSay(host,"hsay",c.word,c.lang); speak(c.word,$("#hsay",host),c.lang); review(c.word,true); bumpGame("hangman","wins"); setTimeout(()=>mountHangman(host),1900); return; }
+    if(lost){ $("#hmsg",host).innerHTML=`<span class="no">The word was “${escHtml(word)}”.</span> ${sayBtn("hsay")}`; wireSay(host,"hsay",c.word,c.lang); speak(c.word,$("#hsay",host),c.lang); review(c.word,false); setTimeout(()=>mountHangman(host),2400); return; }
     host.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{ const l=b.dataset.l; guessed.add(l); if(!word.includes(l)) wrong++; draw(); });
   };
   draw();
@@ -1473,9 +1488,10 @@ function mountWordle(host){
   const tryGuess=g=>{
     if(g.length!==N){ $("#wmsg",host).innerHTML=`<span class="no">Needs ${N} letters.</span>`; return; }
     rows.push(g);
-    if(g===word){ done=true; render(); $("#wmsg",host).innerHTML=`<span class="ok">Solved in ${rows.length}.</span>`;
-      review(c.word,true); bumpGame("wordle","wins"); bumpGame("wordle","best",MAX-rows.length+1); setTimeout(()=>mountWordle(host),1600); return; }
-    if(rows.length>=MAX){ done=true; render(); $("#wmsg",host).innerHTML=`<span class="no">It was “${word}”.</span>`; review(c.word,false); setTimeout(()=>mountWordle(host),2200); return; }
+    if(g===word){ done=true; render(); $("#wmsg",host).innerHTML=`<span class="ok">Solved in ${rows.length}.</span> ${sayBtn("wsay")}`;
+      wireSay(host,"wsay",c.word,c.lang); speak(c.word,$("#wsay",host),c.lang);
+      review(c.word,true); bumpGame("wordle","wins"); bumpGame("wordle","best",MAX-rows.length+1); setTimeout(()=>mountWordle(host),2000); return; }
+    if(rows.length>=MAX){ done=true; render(); $("#wmsg",host).innerHTML=`<span class="no">It was “${word}”.</span> ${sayBtn("wsay")}`; wireSay(host,"wsay",c.word,c.lang); speak(c.word,$("#wsay",host),c.lang); review(c.word,false); setTimeout(()=>mountWordle(host),2600); return; }
     render();
   };
   render();
@@ -1836,6 +1852,13 @@ function restoreNav(){
   if(SOCIAL.some(s=>s.id===nav.social)) socialSite=nav.social;
   if(ARCADE_GAMES.some(g=>g.id===nav.arcade)) arcadePlaying=nav.arcade;   // switchView clears this unless we land on Arcade
   const view=["learn","game","social","settings"].includes(nav.view)?nav.view:"learn";
+  // On open, don't drop the user onto the flashcard every time — surface a random
+  // word game for variety. Only overrides the Practice/Games landing; Words and
+  // Progress still restore as left, and clicking Practice mid-session is unaffected.
+  if(view==="learn" && (learnTab==="practice" || learnTab==="games")){
+    learnTab="games";
+    activeWordGame = WORD_GAMES[Math.floor(Math.random()*WORD_GAMES.length)].id;
+  }
   switchView(view);
 }
 function switchView(v){
