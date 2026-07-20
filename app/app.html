@@ -269,6 +269,13 @@
   .word-img-cap { font-size:10px; color:var(--ink-3); text-align:center; line-height:1.3; }
   .word-img-cap a { color:var(--ink-3); text-decoration:none; }
   .word-img-cap a:hover { text-decoration:underline; }
+  /* type-in games: Context Gap, Dictation, Recall */
+  .say.say-lg { width:56px; height:56px; margin:16px auto 0; }
+  .say.say-lg svg { width:28px; height:28px; }
+  .cloze-sent { font-size:21px; line-height:1.6; color:var(--ink-1); max-width:520px; margin:18px auto 10px; }
+  .cloze-blank { color:var(--violet); font-weight:750; letter-spacing:2px; }
+  .cloze-hint { font-size:15px; color:var(--ink-2); max-width:480px; margin:0 auto 14px; }
+  .recall-def { font-size:22px; font-weight:650; line-height:1.4; color:var(--ink-1); max-width:520px; margin:16px auto 8px; }
   .flash .pos { font-style:italic; color:var(--ink-3); font-size:14px; }
   .fc-meta { display:flex; align-items:center; justify-content:center; gap:9px; flex-wrap:wrap; }
   .flash .def { font-size:20px; line-height:1.45; color:var(--ink-1); max-width:460px; }
@@ -1319,6 +1326,9 @@ const WORD_GAMES = [
   { id:"scramble", name:"Word Scramble",   color:"yellow", ico:I.shuffle, kind:"mount", mount:mountScramble },
   { id:"hangman",  name:"Hangman",         color:"coral",  ico:I.type,    kind:"mount", mount:mountHangman },
   { id:"wordle",   name:"Vocab Wordle",    color:"cyan",   ico:I.grid,    kind:"mount", mount:mountWordle },
+  { id:"cloze",    name:"Context Gap",     color:"violet", ico:I.book,    kind:"mount", mount:mountCloze },
+  { id:"dictate",  name:"Dictation",       color:"cyan",   ico:I.volume,  kind:"mount", mount:mountDictate },
+  { id:"recall",   name:"Recall",          color:"coral",  ico:I.target,  kind:"mount", mount:mountRecall },
 ];
 // Vendored open-source arcade games (see app/games/CREDITS.md). Each is served
 // from /games/<id>/ and saves/resumes via the bridge + the /api/state backend.
@@ -1563,6 +1573,103 @@ function mountWordle(host){
     render();
   };
   render();
+}
+
+// Shared success reveal for the type-in word games (Context Gap, Dictation,
+// Recall): confirm the word, speak it, show its picture, credit the win, then
+// queue the next round. Mirrors the reveal used by Scramble/Wordle.
+function typeWin(host, c, msgSel, gameId, remount){
+  $(msgSel,host).innerHTML=`<div><span class="ok">${I.checkmini} ${escHtml(c.word.toUpperCase())}</span> ${sayBtn("twsay")}</div>${imgSlot("twimg","sm")}`;
+  wireSay(host,"twsay",c.word,c.lang); speak(c.word,$("#twsay",host),c.lang); fillWordImage(host,"twimg",c);
+  review(c.word,true); bumpGame(gameId,"wins"); keyHandler=null; setTimeout(remount,1500);
+}
+
+// Context Gap — a cloze: blank the word out of its own example sentence and have
+// the user type it back. Productive recall + real context, the strongest fit for
+// the evidence on vocabulary retention. Needs an example that contains the word.
+function mountCloze(host){
+  keyHandler=null;
+  const rx=w=>new RegExp("\\b"+w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","i");
+  let c=null, m=null;
+  for(let i=0;i<40 && !c;i++){ const cand=pickWeighted(); if(cand.ex){ const mm=cand.ex.match(rx(cand.word)); if(mm){ c=cand; m=mm; } } }
+  if(!c){ const any=DECK.find(d=>d.ex && rx(d.word).test(d.ex)); if(any){ c=any; m=any.ex.match(rx(any.word)); } }
+  if(!c){
+    host.innerHTML=`<div class="center"><p class="muted" style="max-width:440px;margin:26px auto">Context Gap needs words with an example sentence. Add an example to a few words (Words ▸ edit) and come back.</p></div>`;
+    return;
+  }
+  const idx=m.index, hit=m[0];
+  const blank=`<span class="cloze-blank">${"_".repeat(Math.max(4,hit.length))}</span>`;
+  const sentence=escHtml(c.ex.slice(0,idx))+blank+escHtml(c.ex.slice(idx+hit.length));
+  host.innerHTML=`<div class="center">
+      <div class="muted">Fill in the missing word ${langBadge(c.lang)}</div>
+      <p class="cloze-sent">${sentence}</p>
+      ${c.def?`<p class="cloze-hint"><em>${escHtml(c.def)}</em></p>`:""}
+      <input class="text" id="cinput" placeholder="type the word" autocomplete="off" style="max-width:360px;margin:0 auto"/>
+      <div class="msg" id="cmsg"></div>
+      <div class="row" style="max-width:360px;margin:14px auto 0">
+        <button class="btn ghost" id="cskip">Skip</button>
+        <button class="btn primary" id="ccheck">Check</button>
+      </div></div>`;
+  const inp=$("#cinput",host);
+  const submit=()=>{ const v=inp.value.trim().toLowerCase();
+    if(v && (v===c.word.toLowerCase() || v===hit.toLowerCase())) typeWin(host,c,"#cmsg","cloze",()=>mountCloze(host));
+    else $("#cmsg",host).innerHTML=`<span class="no">Try again…</span>`; };
+  inp.onkeydown=e=>{ if(e.key==="Enter") submit(); };
+  $("#ccheck",host).onclick=submit;
+  $("#cskip",host).onclick=()=>{ review(c.word,false); mountCloze(host); };
+  setTimeout(()=>inp.focus(),30);
+}
+
+// Dictation — hear the word (TTS) and type what you hear. Productive spelling
+// recall + audio; the definition is shown as a light hint to disambiguate.
+function mountDictate(host){
+  keyHandler=null;
+  const c=pickWeighted();
+  host.innerHTML=`<div class="center">
+      <div class="muted">Type the word you hear ${langBadge(c.lang)}</div>
+      <button class="say say-lg" id="dsay" type="button" title="Play again" aria-label="Play again">${I.volume}</button>
+      ${c.def?`<p class="cloze-hint"><em>${escHtml(c.def)}</em></p>`:""}
+      <input class="text" id="dinput" placeholder="type what you hear" autocomplete="off" style="max-width:360px;margin:14px auto 0"/>
+      <div class="msg" id="dmsg"></div>
+      <div class="row" style="max-width:360px;margin:14px auto 0">
+        <button class="btn ghost" id="dskip">Skip</button>
+        <button class="btn primary" id="dcheck">Check</button>
+      </div></div>`;
+  const inp=$("#dinput",host);
+  wireSay(host,"dsay",c.word,c.lang);
+  speak(c.word,$("#dsay",host),c.lang);      // play once on mount
+  const submit=()=>{ if(inp.value.trim().toLowerCase()===c.word.toLowerCase()) typeWin(host,c,"#dmsg","dictate",()=>mountDictate(host));
+    else $("#dmsg",host).innerHTML=`<span class="no">Try again…</span>`; };
+  inp.onkeydown=e=>{ if(e.key==="Enter") submit(); };
+  $("#dcheck",host).onclick=submit;
+  $("#dskip",host).onclick=()=>{ review(c.word,false); mountDictate(host); };
+  setTimeout(()=>inp.focus(),30);
+}
+
+// Recall — the hardest, strongest retrieval form: shown the definition, produce
+// the word by typing it. A first-letter + length nudge appears after a miss.
+function mountRecall(host){
+  keyHandler=null;
+  const c=pickWeighted();
+  host.innerHTML=`<div class="center">
+      <div class="muted">What word means this? ${langBadge(c.lang)}</div>
+      <p class="recall-def">${escHtml(c.def)}</p>
+      ${c.pos?`<div class="prompt-meta"><span class="pos" style="font-style:italic;color:var(--ink-3)">${escHtml(c.pos)}</span></div>`:""}
+      <input class="text" id="rinput" placeholder="type the word" autocomplete="off" style="max-width:360px;margin:0 auto"/>
+      <div class="msg" id="rmsg"></div>
+      <div class="row" style="max-width:360px;margin:14px auto 0">
+        <button class="btn ghost" id="rskip">Reveal</button>
+        <button class="btn primary" id="rcheck">Check</button>
+      </div></div>`;
+  const inp=$("#rinput",host);
+  let misses=0;
+  const submit=()=>{ if(inp.value.trim().toLowerCase()===c.word.toLowerCase()) typeWin(host,c,"#rmsg","recall",()=>mountRecall(host));
+    else { misses++; const hint=` Starts with “<b>${escHtml(c.word[0])}</b>”, ${c.word.replace(/\s/g,"").length} letters.`;
+      $("#rmsg",host).innerHTML=`<span class="no">Not quite.</span>${misses>=1?hint:""}`; } };
+  inp.onkeydown=e=>{ if(e.key==="Enter") submit(); };
+  $("#rcheck",host).onclick=submit;
+  $("#rskip",host).onclick=()=>{ $("#rmsg",host).innerHTML=`<span class="no">It was “${escHtml(c.word)}”.</span>`; review(c.word,false); keyHandler=null; setTimeout(()=>mountRecall(host),1600); };
+  setTimeout(()=>inp.focus(),30);
 }
 
 /* ---------------- PROGRESS ---------------- */

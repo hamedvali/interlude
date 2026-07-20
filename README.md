@@ -18,7 +18,7 @@ exactly when it's time to read or reply.
 [![Made with Python](https://img.shields.io/badge/python-3-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-zero-2ea44f)](#-how-it-works)
 [![No Dock icon](https://img.shields.io/badge/dock%20icon-none-7C4DEB)](#-how-it-works)
-[![Version](https://img.shields.io/badge/version-1.24.0-7C4DEB)](#)
+[![Version](https://img.shields.io/badge/version-1.25.0-7C4DEB)](#)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 
 <br />
@@ -33,7 +33,7 @@ exactly when it's time to read or reply.
 
 - 🧠 **Learn while you wait** — spaced-repetition flashcards (Leitner boxes 1–5) surface the words you're about to forget, and speak them aloud on demand.
 - 🖼️ **Picture memory aids** — each word gets a Creative-Commons photo from [Openverse](https://openverse.org) (no API key, cached locally, credited) on the flashcard and games. Toggle off in Settings, or paste your own image URL per word.
-- 🎮 **Word games + Arcade** — four quick word games (Definition Quiz, Word Scramble, Hangman, Vocab Wordle) plus a full-screen **Arcade** with a vendored, MIT-licensed [2048](https://github.com/gabrielecirulli/2048) that **saves and resumes mid-game** — stop halfway, pick up right where you left off.
+- 🎮 **Word games + Arcade** — seven quick word games (Definition Quiz, Word Scramble, Hangman, Vocab Wordle, plus retrieval-first **Context Gap**, **Dictation**, and **Recall**) that all feed the same spaced-repetition boxes — plus a full-screen **Arcade** with a vendored, MIT-licensed [2048](https://github.com/gabrielecirulli/2048) that **saves and resumes mid-game** — stop halfway, pick up right where you left off.
 - 📱 **Social, in the window** — a quick pick of Instagram · X · TikTok, opened right inside the popup for a genuinely mindless glance while you wait.
 - 🎛️ **State-aware attention routing** — Interlude sees *why* Claude stopped and reacts differently: **done** (violet, counts down and closes), **needs input** (amber, closes so you can reply), **permission** (red, flashes then closes), **error** (red, stays open with the last line). Optional matching macOS chimes.
 - 🕶️ **Snooze / focus** — one click (or `interlude snooze 1h|3h|8h`) mutes the popup and sounds, then auto-resumes.
@@ -92,7 +92,7 @@ streak. Pick one, though — installing both registers the hooks twice.
     </td>
     <td width="33%" valign="top">
       <img src="docs/games.png" alt="Learn ▸ Games — four word games" /><br />
-      <b>🧩 Games</b> — four fast word games: Quiz, Scramble, Hangman, Wordle.
+      <b>🧩 Games</b> — seven word games: Quiz, Scramble, Hangman, Wordle, Context Gap, Dictation, Recall.
     </td>
   </tr>
   <tr>
@@ -221,6 +221,25 @@ offline afterward, and the creator + licence are credited beneath it.
 Many advanced words are abstract, so the match is sometimes only loosely related — which is exactly
 how the keyword-mnemonic technique works. Turn it all off with **Settings ▸ Word images**, or paste
 an exact **image URL** in a word's editor to override the auto-picture.
+
+<br />
+
+## 🧩 How the games help you learn
+
+The word games aren't just filler — they're ordered by how hard your brain has to *pull* the word
+back, because effortful retrieval is what actually builds memory (the "testing effect"). Each game
+feeds the same Leitner boxes, so playing them schedules your future reviews:
+
+- **Recall** — you see only the definition and type the word from memory. This is *free recall*, the
+  most demanding and most durable form of practice.
+- **Context Gap** — the word is blanked out of a real example sentence for you to fill in (*cloze*),
+  giving you a contextual cue without handing you the answer.
+- **Dictation** — you hear the word and type it, tying sound to spelling to meaning.
+- **Definition Quiz** — multiple choice, the gentlest retrieval, good for shaky new words.
+- **Scramble · Hangman · Wordle** — spelling-focused play that reinforces the letters.
+
+A picture and a pronunciation appear on every answer reveal, so each round layers meaning, sound,
+and image onto the same word.
 
 <br />
 
