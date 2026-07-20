@@ -260,6 +260,15 @@
   .say:active { transform:scale(.93); }
   .say.speaking { background:var(--violet); color:#fff; border-color:transparent; animation:sayPulse 1s ease-in-out infinite; }
   @keyframes sayPulse { 0%,100%{ box-shadow:0 0 0 0 var(--violet-soft); } 50%{ box-shadow:0 0 0 6px var(--violet-soft); } }
+  /* Openverse memory-aid pictures */
+  .word-img-slot { display:flex; justify-content:center; }
+  .word-img-fig { margin:0; display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .word-img { display:block; max-width:260px; max-height:150px; width:auto; object-fit:cover;
+    border-radius:12px; border:1px solid var(--line); background:var(--surface-2); }
+  .word-img-slot.sm .word-img { max-height:96px; max-width:200px; }
+  .word-img-cap { font-size:10px; color:var(--ink-3); text-align:center; line-height:1.3; }
+  .word-img-cap a { color:var(--ink-3); text-decoration:none; }
+  .word-img-cap a:hover { text-decoration:underline; }
   .flash .pos { font-style:italic; color:var(--ink-3); font-size:14px; }
   .fc-meta { display:flex; align-items:center; justify-content:center; gap:9px; flex-wrap:wrap; }
   .flash .def { font-size:20px; line-height:1.45; color:var(--ink-1); max-width:460px; }
@@ -752,6 +761,7 @@ const api = {
   async checkUpdate(){ try{ await fetch("/api/check-update",{method:"POST"}); }catch{} },
   async settings(){ try{ return await (await fetch("/api/settings")).json(); }catch{ return {}; } },
   async saveSettings(patch){ try{ return await (await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(patch)})).json(); }catch{ return null; } },
+  async image(word,lang){ try{ return await (await fetch("/api/image?word="+encodeURIComponent(word)+"&lang="+encodeURIComponent(lang||""))).json(); }catch{ return null; } },
   async sync(){ try{ return await (await fetch("/api/sync")).json(); }catch{ return {enabled:false}; } },
   async setSync(dir){ try{ return await (await fetch("/api/sync",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dir})})).json(); }catch{ return {ok:false,error:"Network error"}; } },
   async openSocial(site){ try{ return await (await fetch("/api/social/open?site="+encodeURIComponent(site))).json(); }catch{ return null; } },
@@ -819,6 +829,29 @@ function speakLocal(text, btn, lang){
 function sayBtn(id){ return `<button class="say say-sm" id="${id}" type="button" title="Hear pronunciation" aria-label="Hear pronunciation">${I.volume}</button>`; }
 function wireSay(host, id, word, lang){ const b=$("#"+id, host); if(b) b.onclick=(e)=>{ e.stopPropagation(); speak(word, b, lang); }; }
 
+// Word images (Openverse, server-proxied + cached) — a visual memory aid shown
+// where the word is already visible: flashcard front, quiz prompt, game reveals.
+// imgSlot() drops a stable placeholder; fillWordImage() fills it asynchronously
+// so the card never blocks on the network. A manual `rec.img` URL wins; results
+// are memoised per session so re-renders (e.g. the Practice reshuffle) don't refetch.
+const _imgMemo = new Map();
+function imgSlot(id, cls){ return `<div class="word-img-slot ${cls||""}" id="${id}"></div>`; }
+async function fillWordImage(host, id, rec){
+  if(SETTINGS.images===false) return;
+  const slot=$("#"+id, host); if(!slot || !rec) return;
+  if(rec.img){ slot.innerHTML=`<figure class="word-img-fig"><img class="word-img" src="${escHtml(rec.img)}" alt="" loading="lazy" onerror="this.closest('.word-img-fig').remove()"></figure>`; return; }
+  const key=(rec.lang||"")+":"+(rec.word||"");
+  let data=_imgMemo.get(key);
+  if(data===undefined){ data=await api.image(rec.word, rec.lang); _imgMemo.set(key, data); }
+  if(!slot.isConnected) return;                 // the view moved on while we waited
+  if(data && data.ok){
+    const cap = data.creator
+      ? `<figcaption class="word-img-cap"><a href="${escHtml(data.landing||'#')}" target="_blank" rel="noopener">${escHtml(data.creator)}</a>${data.license?` · <a href="${escHtml(data.license_url||'#')}" target="_blank" rel="noopener">${escHtml(data.license.toUpperCase())}</a>`:""}</figcaption>`
+      : "";
+    slot.innerHTML=`<figure class="word-img-fig"><img class="word-img" src="${escHtml(data.src)}" alt="" loading="lazy">${cap}</figure>`;
+  }
+}
+
 const I = {
   flame:`<svg class="icon" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/></svg>`,
   check:`<svg class="icon" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m22 4-10 10.01-3-3"/></svg>`,
@@ -875,7 +908,7 @@ const HERO_ART = `<svg viewBox="0 0 220 150" width="220" height="150" fill="none
 let DECK=[], BUILTIN=[], STATE=null, keyHandler=null;
 // The shipped words.json is stored as {word,pos,definition,example,distractors};
 // the app works in a slightly shorter shape everywhere else.
-function mapWord(c){ return {word:c.word,pos:c.pos,def:c.definition,ex:c.example,distractors:(c.distractors||[]).slice(),lang:c.lang||""}; }
+function mapWord(c){ return {word:c.word,pos:c.pos,def:c.definition,ex:c.example,distractors:(c.distractors||[]).slice(),lang:c.lang||"",img:c.img||""}; }
 // The language a word belongs to (untagged words are the English starter deck).
 const LANG_NAME = { en:"English", nl:"Dutch", de:"German" };
 // A small pill naming the word's language — shown everywhere a word appears.
@@ -1016,9 +1049,10 @@ function renderFlashcard(host){
     const el=$("#flash",host);
     el.innerHTML = flipped
       ? `${cur.pos?`<span class="tag">${escHtml(cur.pos)}</span>`:""}<div class="def">${escHtml(cur.def)}</div>${cur.ex?`<div class="ex">“${escHtml(cur.ex)}”</div>`:""}`
-      : `<span class="eyebrow">tap to reveal</span><div class="word-line"><span class="word">${escHtml(cur.word)}</span>${say}</div><div class="fc-meta">${cur.pos?`<span class="pos">${escHtml(cur.pos)}</span>`:""}${langBadge(cur.lang)}</div>`;
+      : `<span class="eyebrow">tap to reveal</span>${imgSlot("fcImg")}<div class="word-line"><span class="word">${escHtml(cur.word)}</span>${say}</div><div class="fc-meta">${cur.pos?`<span class="pos">${escHtml(cur.pos)}</span>`:""}${langBadge(cur.lang)}</div>`;
     const sb=$("#sayBtn",el);
     if(sb) sb.onclick=(e)=>{ e.stopPropagation(); speak(cur.word,sb,cur.lang); };   // don't flip the card
+    if(!flipped) fillWordImage(el,"fcImg",cur);   // picture on the word side only
   };
   face();
   const flip=()=>{ flipped=!flipped; face(); };
@@ -1211,7 +1245,7 @@ const LANGS=Object.keys(LANG_NAME).map(v=>({v, t:LANG_NAME[v]}));
 function renderWordEditor(host){
   keyHandler=null;
   const editing=wordsEdit.mode==="edit";
-  const w=(editing?DECK.find(x=>x.word.toLowerCase()===wordsEdit.key):null) || {word:"",pos:"",def:"",ex:"",distractors:[],lang:""};
+  const w=(editing?DECK.find(x=>x.word.toLowerCase()===wordsEdit.key):null) || {word:"",pos:"",def:"",ex:"",distractors:[],lang:"",img:""};
   const ds=(w.distractors||[]).slice(0,3); while(ds.length<3) ds.push("");
   const curLang=w.lang||"en";
   host.innerHTML=`
@@ -1231,6 +1265,8 @@ function renderWordEditor(host){
         <textarea class="finput" id="fDef" rows="2" placeholder="What it means">${escHtml(w.def||"")}</textarea></label>
       <label class="fld"><span class="fld-l">Example <em>optional</em></span>
         <textarea class="finput" id="fEx" rows="2" placeholder="A sentence using the word">${escHtml(w.ex||"")}</textarea></label>
+      <label class="fld"><span class="fld-l">Image URL <em>optional · overrides the auto-picture</em></span>
+        <input class="finput" id="fImg" type="text" autocomplete="off" placeholder="https://…  (leave blank to auto-fetch from Openverse)" value="${escHtml(w.img||"")}"></label>
       <div class="fld"><span class="fld-l">Wrong answers <em>optional · shown as decoys in the Quiz</em></span>
         <input class="finput" id="fD0" type="text" autocomplete="off" placeholder="A plausible wrong meaning" value="${escHtml(ds[0])}">
         <input class="finput" id="fD1" type="text" autocomplete="off" placeholder="Another wrong meaning" value="${escHtml(ds[1])}">
@@ -1254,6 +1290,7 @@ function saveWordEditor(host){
   const def=$("#fDef",host).value.trim();
   const ex=$("#fEx",host).value.trim();
   const lang=($("#fLang",host)||{}).value||"en";
+  const img=$("#fImg",host).value.trim();
   const distractors=["fD0","fD1","fD2"].map(id=>$("#"+id,host).value.trim()).filter(Boolean);
   const msg=$("#fMsg",host);
   const fail=t=>{ msg.innerHTML=`<span class="no">${escHtml(t)}</span>`; };
@@ -1261,7 +1298,7 @@ function saveWordEditor(host){
   if(!def){ fail("Enter a definition."); $("#fDef",host).focus(); return; }
   const key=word.toLowerCase(), editing=wordsEdit.mode==="edit", origKey=editing?wordsEdit.key:null;
   if(DECK.some(w=>w.word.toLowerCase()===key && w.word.toLowerCase()!==origKey)){ fail(`“${word}” is already in your deck.`); return; }
-  const rec={word,pos,def,ex,distractors,lang};
+  const rec={word,pos,def,ex,distractors,lang,img};
   const next=DECK.slice();
   if(editing){
     const idx=next.findIndex(w=>w.word.toLowerCase()===origKey);
@@ -1411,9 +1448,11 @@ function mountQuiz(host){
       <div class="muted">What does this word mean?</div>
       <div class="prompt-word">${escHtml(c.word)}</div>
       <div class="prompt-meta">${c.pos?`<span class="pos" style="font-style:italic;color:var(--ink-3)">${escHtml(c.pos)}</span>`:""}${langBadge(c.lang)}${sayBtn("qsay")}</div>
+      ${imgSlot("qImg","sm")}
       <div id="opts"></div>
       <div class="msg" id="qmsg"></div>`;
   wireSay(host,"qsay",c.word,c.lang);
+  fillWordImage(host,"qImg",c);
   const box=$("#opts",host);
   opts.forEach((o,i)=>{
     const b=document.createElement("button"); b.className="opt";
@@ -1460,8 +1499,8 @@ function mountScramble(host){
     }
   };
   const submit=()=>{ if(inp.value.trim().toLowerCase()===c.word){
-      $("#smsg",host).innerHTML=`<span class="ok">${I.checkmini} ${c.word.toUpperCase()}</span> ${sayBtn("ssay")}`;
-      wireSay(host,"ssay",c.word,c.lang); speak(c.word,$("#ssay",host),c.lang);   // hear it once solved
+      $("#smsg",host).innerHTML=`<div><span class="ok">${I.checkmini} ${c.word.toUpperCase()}</span> ${sayBtn("ssay")}</div>${imgSlot("simg","sm")}`;
+      wireSay(host,"ssay",c.word,c.lang); speak(c.word,$("#ssay",host),c.lang); fillWordImage(host,"simg",c);   // hear + see it once solved
       review(c.word,true); bumpGame("scramble","wins"); setTimeout(()=>mountScramble(host),1400);
     } else $("#smsg",host).innerHTML=`<span class="no">Try again…</span>`; };
   inp.oninput=reflect;
@@ -1484,8 +1523,8 @@ function mountHangman(host){
       <div class="keyrow" id="keys">${"abcdefghijklmnopqrstuvwxyz".split("").map(l=>
         `<button class="key-btn" data-l="${l}" ${guessed.has(l)?"disabled":""}>${l}</button>`).join("")}</div>
       <div class="msg center" id="hmsg"></div></div>`;
-    if(won){ $("#hmsg",host).innerHTML=`<span class="ok">Nice — you got it.</span> ${sayBtn("hsay")}`; wireSay(host,"hsay",c.word,c.lang); speak(c.word,$("#hsay",host),c.lang); review(c.word,true); bumpGame("hangman","wins"); setTimeout(()=>mountHangman(host),1900); return; }
-    if(lost){ $("#hmsg",host).innerHTML=`<span class="no">The word was “${escHtml(word)}”.</span> ${sayBtn("hsay")}`; wireSay(host,"hsay",c.word,c.lang); speak(c.word,$("#hsay",host),c.lang); review(c.word,false); setTimeout(()=>mountHangman(host),2400); return; }
+    if(won){ $("#hmsg",host).innerHTML=`<div><span class="ok">Nice — you got it.</span> ${sayBtn("hsay")}</div>${imgSlot("himg","sm")}`; wireSay(host,"hsay",c.word,c.lang); speak(c.word,$("#hsay",host),c.lang); fillWordImage(host,"himg",c); review(c.word,true); bumpGame("hangman","wins"); setTimeout(()=>mountHangman(host),1900); return; }
+    if(lost){ $("#hmsg",host).innerHTML=`<div><span class="no">The word was “${escHtml(word)}”.</span> ${sayBtn("hsay")}</div>${imgSlot("himg","sm")}`; wireSay(host,"hsay",c.word,c.lang); speak(c.word,$("#hsay",host),c.lang); fillWordImage(host,"himg",c); review(c.word,false); setTimeout(()=>mountHangman(host),2400); return; }
     host.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{ const l=b.dataset.l; guessed.add(l); if(!word.includes(l)) wrong++; draw(); });
   };
   draw();
@@ -1517,10 +1556,10 @@ function mountWordle(host){
   const tryGuess=g=>{
     if(g.length!==N){ $("#wmsg",host).innerHTML=`<span class="no">Needs ${N} letters.</span>`; return; }
     rows.push(g);
-    if(g===word){ done=true; render(); $("#wmsg",host).innerHTML=`<span class="ok">Solved in ${rows.length}.</span> ${sayBtn("wsay")}`;
-      wireSay(host,"wsay",c.word,c.lang); speak(c.word,$("#wsay",host),c.lang);
+    if(g===word){ done=true; render(); $("#wmsg",host).innerHTML=`<div><span class="ok">Solved in ${rows.length}.</span> ${sayBtn("wsay")}</div>${imgSlot("wimg","sm")}`;
+      wireSay(host,"wsay",c.word,c.lang); speak(c.word,$("#wsay",host),c.lang); fillWordImage(host,"wimg",c);
       review(c.word,true); bumpGame("wordle","wins"); bumpGame("wordle","best",MAX-rows.length+1); setTimeout(()=>mountWordle(host),2000); return; }
-    if(rows.length>=MAX){ done=true; render(); $("#wmsg",host).innerHTML=`<span class="no">It was “${word}”.</span> ${sayBtn("wsay")}`; wireSay(host,"wsay",c.word,c.lang); speak(c.word,$("#wsay",host),c.lang); review(c.word,false); setTimeout(()=>mountWordle(host),2600); return; }
+    if(rows.length>=MAX){ done=true; render(); $("#wmsg",host).innerHTML=`<div><span class="no">It was “${word}”.</span> ${sayBtn("wsay")}</div>${imgSlot("wimg","sm")}`; wireSay(host,"wsay",c.word,c.lang); speak(c.word,$("#wsay",host),c.lang); fillWordImage(host,"wimg",c); review(c.word,false); setTimeout(()=>mountWordle(host),2600); return; }
     render();
   };
   render();
@@ -1688,6 +1727,13 @@ function renderSettings(){
         </div>
         <div class="set-ctl">${sw("swSound",s.sound)}</div>
       </div>
+      <div class="set-row">
+        <div class="set-info">
+          <div class="set-label">Word images</div>
+          <div class="set-desc">Show a Creative-Commons picture for each word (from Openverse) on the flashcard and games, as a memory aid. Fetched once and cached locally.</div>
+        </div>
+        <div class="set-ctl">${sw("swImages",s.images!==false)}</div>
+      </div>
     </div>
 
     <div class="card set-card">
@@ -1728,6 +1774,7 @@ function renderSettings(){
   numH.onchange=()=>{ numH.value=clamp(numH.value,800); saveSetting({height:parseInt(numH.value)}); };
 
   $("#swSound").onchange=e=>{ if(e.target.checked) chime(); saveSetting({sound:e.target.checked}); };
+  $("#swImages").onchange=e=>saveSetting({images:e.target.checked});
   $("#swEnabled").onchange=e=>saveSetting({enabled:e.target.checked});
   $("#swUpdate").onchange=e=>saveSetting({autoUpdate:e.target.checked});
   paintSync();

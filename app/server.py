@@ -6,6 +6,7 @@ interlude.py, then left running between prompts. Shares a "busy" flag with
 the hook scripts through the .run/status file so the web app knows when
 Claude is working vs. ready.
 """
+import hashlib
 import json
 import os
 import shutil
@@ -87,6 +88,7 @@ SETTINGS_DEFAULTS = {
     "width": int(os.environ.get("INTERLUDE_WIDTH", "350")),
     "height": int(os.environ.get("INTERLUDE_HEIGHT", "800")),
     "sound": False,
+    "images": True,   # show Openverse memory-aid pictures on cards/games
     # Optional folder (e.g. a Dropbox dir) where progress lives so several
     # machines share it. Empty = local-only. Written via _save_sync_dir, not
     # write_settings — it's a free-form path, not a whitelisted choice.
@@ -120,6 +122,16 @@ _TTS_CACHE = {}            # (tl\x00text) -> mp3 bytes; words repeat a lot in pr
 _TTS_CACHE_MAX = 300
 _tts_lock = threading.Lock()
 _state_lock = threading.Lock()   # serialize the read-merge-write of /api/state
+
+# Word images: we proxy Openverse (openverse.org) image search — Creative-Commons
+# pictures, free, no API key — and cache the chosen thumbnail to disk so each word
+# is fetched at most once and works offline afterward. Used as a visual memory aid
+# on the flashcard front, the quiz prompt, and the games' reveal.
+IMG_DIR = os.path.join(DATA_DIR, "imgcache")
+IMG_INDEX = os.path.join(IMG_DIR, "index.json")
+_img_lock = threading.Lock()
+_IMG_CT_EXT = {"image/jpeg": ".jpg", "image/png": ".png", "image/gif": ".gif",
+               "image/webp": ".webp", "image/bmp": ".bmp", "image/svg+xml": ".svg"}
 
 DEFAULT_STATE = {
     "words": {},        # word -> {"box": 1, "seen": 0, "correct": 0}
@@ -180,6 +192,8 @@ def _coerce_settings(incoming):
                 pass
     if "sound" in incoming:
         out["sound"] = bool(incoming["sound"])
+    if "images" in incoming:
+        out["images"] = bool(incoming["images"])
     return out
 
 
@@ -221,6 +235,83 @@ def write_settings(incoming):
     if "autoUpdate" in incoming:
         _set_marker(NO_UPDATE_FILE, not bool(incoming["autoUpdate"]))
     return read_settings()
+
+
+def _load_img_index():
+    idx = read_json(IMG_INDEX, {})
+    return idx if isinstance(idx, dict) else {}
+
+
+def _save_img_index(idx):
+    tmp = IMG_INDEX + ".tmp"
+    try:
+        os.makedirs(IMG_DIR, exist_ok=True)
+        with open(tmp, "w") as f:
+            json.dump(idx, f, indent=2)
+        os.replace(tmp, IMG_INDEX)
+    except OSError:
+        pass
+
+
+def openverse_lookup(word, lang):
+    """Return cached (or freshly fetched) Creative-Commons image metadata for a
+    word, or None. On a miss we search Openverse, download the first result whose
+    thumbnail loads, cache the bytes under IMG_DIR, and record the attribution in
+    index.json. Failures are never cached, so a later retry can still succeed."""
+    word = (word or "").strip()
+    if not word:
+        return None
+    key = (lang or "").strip().lower() + ":" + word.lower()
+    with _img_lock:
+        hit = _load_img_index().get(key)
+        if hit and os.path.isfile(os.path.join(IMG_DIR, hit.get("file", ""))):
+            return hit
+    ua = {"User-Agent": "Interlude/" + read_version() + " (vocabulary study app)"}
+    api = "https://api.openverse.org/v1/images/?" + urlencode(
+        {"q": word, "page_size": 8, "mature": "false"})
+    try:
+        with urllib.request.urlopen(urllib.request.Request(api, headers=ua), timeout=6) as r:
+            payload = json.loads(r.read().decode("utf-8"))
+    except Exception:
+        return None
+    for res in (payload.get("results") or []):
+        thumb = res.get("thumbnail") or res.get("url")
+        if not thumb:
+            continue
+        try:
+            with urllib.request.urlopen(urllib.request.Request(thumb, headers=ua), timeout=6) as r:
+                data = r.read()
+                ct = (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        except Exception:
+            continue
+        if not data:
+            continue
+        ext = _IMG_CT_EXT.get(ct, ".jpg")
+        fname = hashlib.sha1(key.encode("utf-8")).hexdigest() + ext
+        try:
+            os.makedirs(IMG_DIR, exist_ok=True)
+            fpath = os.path.join(IMG_DIR, fname)
+            tmp = fpath + ".tmp"
+            with open(tmp, "wb") as f:
+                f.write(data)
+            os.replace(tmp, fpath)
+        except OSError:
+            return None
+        meta = {
+            "file": fname,
+            "title": res.get("title") or "",
+            "creator": res.get("creator") or "",
+            "landing": res.get("foreign_landing_url") or "",
+            "license": res.get("license") or "",
+            "license_url": res.get("license_url") or "",
+            "source": res.get("source") or res.get("provider") or "",
+        }
+        with _img_lock:
+            idx = _load_img_index()
+            idx[key] = meta
+            _save_img_index(idx)
+        return meta
+    return None
 
 
 def read_snooze():
@@ -625,6 +716,37 @@ class Handler(BaseHTTPRequestHandler):
                 _TTS_CACHE[key] = data
         self._send(200, data, "audio/mpeg")
 
+    def _serve_image(self, word, lang):
+        """Look up a memory-aid picture for a word; JSON with a local /api/img
+        src + attribution, or {"ok": false} when none is found."""
+        d = openverse_lookup(word, lang)
+        if not d:
+            self._send(200, {"ok": False})
+            return
+        self._send(200, {
+            "ok": True, "src": "/api/img/" + d["file"],
+            "title": d.get("title", ""), "creator": d.get("creator", ""),
+            "landing": d.get("landing", ""), "license": d.get("license", ""),
+            "license_url": d.get("license_url", ""), "source": d.get("source", ""),
+        })
+
+    def _serve_img_file(self, path):
+        """Serve a cached image byte-for-byte from IMG_DIR, guarding traversal."""
+        name = unquote(path[len("/api/img/"):])
+        if not name or "/" in name or "\\" in name or ".." in name:
+            self._send(404, {"error": "not found"})
+            return
+        full = os.path.join(IMG_DIR, name)
+        if not os.path.isfile(full):
+            self._send(404, {"error": "not found"})
+            return
+        ctype = MIME.get(os.path.splitext(full)[1].lower(), "application/octet-stream")
+        try:
+            with open(full, "rb") as f:
+                self._send(200, f.read(), ctype)
+        except OSError:
+            self._send(404, {"error": "not found"})
+
     def do_GET(self):
         path = self.path.split("?", 1)[0]
         if path in ("/", "/app.html", "/index.html"):
@@ -666,6 +788,11 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/tts":
             q = parse_qs(urlparse(self.path).query)
             self._serve_tts((q.get("text") or [""])[0], (q.get("lang") or ["en"])[0])
+        elif path == "/api/image":
+            q = parse_qs(urlparse(self.path).query)
+            self._serve_image((q.get("word") or [""])[0], (q.get("lang") or [""])[0])
+        elif path.startswith("/api/img/"):
+            self._serve_img_file(path)
         else:
             self._send(404, {"error": "not found"})
 

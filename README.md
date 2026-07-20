@@ -18,7 +18,7 @@ exactly when it's time to read or reply.
 [![Made with Python](https://img.shields.io/badge/python-3-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-zero-2ea44f)](#-how-it-works)
 [![No Dock icon](https://img.shields.io/badge/dock%20icon-none-7C4DEB)](#-how-it-works)
-[![Version](https://img.shields.io/badge/version-1.23.0-7C4DEB)](#)
+[![Version](https://img.shields.io/badge/version-1.24.0-7C4DEB)](#)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 
 <br />
@@ -32,6 +32,7 @@ exactly when it's time to read or reply.
 ## ✨ Highlights
 
 - 🧠 **Learn while you wait** — spaced-repetition flashcards (Leitner boxes 1–5) surface the words you're about to forget, and speak them aloud on demand.
+- 🖼️ **Picture memory aids** — each word gets a Creative-Commons photo from [Openverse](https://openverse.org) (no API key, cached locally, credited) on the flashcard and games. Toggle off in Settings, or paste your own image URL per word.
 - 🎮 **Word games + Arcade** — four quick word games (Definition Quiz, Word Scramble, Hangman, Vocab Wordle) plus a full-screen **Arcade** with a vendored, MIT-licensed [2048](https://github.com/gabrielecirulli/2048) that **saves and resumes mid-game** — stop halfway, pick up right where you left off.
 - 📱 **Social, in the window** — a quick pick of Instagram · X · TikTok, opened right inside the popup for a genuinely mindless glance while you wait.
 - 🎛️ **State-aware attention routing** — Interlude sees *why* Claude stopped and reacts differently: **done** (violet, counts down and closes), **needs input** (amber, closes so you can reply), **permission** (red, flashes then closes), **error** (red, stays open with the last line). Optional matching macOS chimes.
@@ -205,6 +206,21 @@ The first machine you turn on **seeds** the folder from its current progress; th
 turning sync off just falls back to it. Only progress is shared — window size and other settings
 stay per-machine. Use one machine at a time and let the folder finish syncing before switching;
 writes are atomic, so you'll never get a half-written file.
+
+<br />
+
+## 🖼️ Word images
+
+Every word can show a picture as a visual memory aid — on the flashcard front, next to the word in
+the Definition Quiz, and on the reveal after you solve Scramble / Hangman / Wordle (never during
+play, so nothing is spoiled). Images come from [Openverse](https://openverse.org), the
+Creative-Commons image search — **no API key, no account**. The first time a word appears its
+picture is fetched and **cached locally** (under `~/.interlude/imgcache`), so it's instant and
+offline afterward, and the creator + licence are credited beneath it.
+
+Many advanced words are abstract, so the match is sometimes only loosely related — which is exactly
+how the keyword-mnemonic technique works. Turn it all off with **Settings ▸ Word images**, or paste
+an exact **image URL** in a word's editor to override the auto-picture.
 
 <br />
 
