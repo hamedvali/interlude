@@ -18,7 +18,7 @@ exactly when it's time to read or reply.
 [![Made with Python](https://img.shields.io/badge/python-3-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-zero-2ea44f)](#-how-it-works)
 [![No Dock icon](https://img.shields.io/badge/dock%20icon-none-7C4DEB)](#-how-it-works)
-[![Version](https://img.shields.io/badge/version-1.30.0-7C4DEB)](#)
+[![Version](https://img.shields.io/badge/version-1.31.0-7C4DEB)](#)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 
 <br />
@@ -33,7 +33,7 @@ exactly when it's time to read or reply.
 
 - 🧠 **Learn while you wait** — spaced-repetition flashcards (Leitner boxes 1–5) surface the words you're about to forget, and speak them aloud on demand.
 - 🖼️ **Picture memory aids** — give any word an image URL (from anywhere) and it shows on the flashcard and games as a visual mnemonic — so the picture is always one you chose and actually relevant.
-- 🎮 **Word games + Arcade** — seven quick word games (Definition Quiz, Word Scramble, Hangman, Vocab Wordle, plus retrieval-first **Context Gap**, **Dictation**, and **Recall**) that all feed the same spaced-repetition boxes — plus a full-screen **Arcade** with a vendored, MIT-licensed [2048](https://github.com/gabrielecirulli/2048) that **saves and resumes mid-game** — stop halfway, pick up right where you left off.
+- 🎮 **Word games + Arcade** — eight quick word games (Definition Quiz, Word Scramble, Hangman, Vocab Wordle, retrieval-first **Context Gap**, **Dictation**, **Recall**, and a mini **Word Sudoku** built from a word's letters) that all feed the same spaced-repetition boxes — plus a full-screen **Arcade** with a vendored, MIT-licensed [2048](https://github.com/gabrielecirulli/2048) that **saves and resumes mid-game** — stop halfway, pick up right where you left off.
 - 📱 **Social, in the window** — a quick pick of Instagram · X · TikTok, opened right inside the popup for a genuinely mindless glance while you wait.
 - 🎛️ **State-aware attention routing** — Interlude sees *why* Claude stopped and reacts differently: **done** (violet, counts down and closes), **needs input** (amber, closes so you can reply), **permission** (red, flashes then closes), **error** (red, stays open with the last line). Optional matching macOS chimes.
 - 🕶️ **Snooze / focus** — one click (or `interlude snooze 1h|3h|8h`) mutes the popup and sounds, then auto-resumes.
@@ -92,7 +92,7 @@ streak. Pick one, though — installing both registers the hooks twice.
     </td>
     <td width="33%" valign="top">
       <img src="docs/games.png" alt="Learn ▸ Games — four word games" /><br />
-      <b>🧩 Games</b> — seven word games: Quiz, Scramble, Hangman, Wordle, Context Gap, Dictation, Recall.
+      <b>🧩 Games</b> — eight word games: Quiz, Scramble, Hangman, Wordle, Context Gap, Dictation, Recall, Word Sudoku.
     </td>
   </tr>
   <tr>
@@ -232,6 +232,8 @@ feeds the same Leitner boxes, so playing them schedules your future reviews:
 - **Dictation** — you hear the word and type it, tying sound to spelling to meaning.
 - **Definition Quiz** — multiple choice, the gentlest retrieval, good for shaky new words.
 - **Scramble · Hangman · Wordle** — spelling-focused play that reinforces the letters.
+- **Word Sudoku** — a mini 6×6 logic puzzle whose six symbols are a word's distinct letters (revealed
+  on solve). More of a word-themed brain break than a memory test, but a lighter exposure all the same.
 
 A picture and a pronunciation appear on every answer reveal, so each round layers meaning, sound,
 and image onto the same word.

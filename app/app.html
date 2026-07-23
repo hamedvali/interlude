@@ -505,6 +505,24 @@
   .gcell.miss { background:var(--surface-2); border-color:var(--line); color:var(--ink-3); }
   .gcell.filled { border-color:var(--ink-3); color:var(--ink-1); }
   .gcell.active { border-color:var(--violet); box-shadow:0 0 0 3px var(--violet-soft); }
+  /* Word Sudoku — 6x6 with 2x3 boxes; symbols are a word's six distinct letters */
+  .sudoku { display:grid; grid-template-columns:repeat(6,1fr); max-width:300px; margin:14px auto;
+    border:2px solid var(--ink-3); border-radius:10px; overflow:hidden; }
+  .scell { aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:18px;
+    font-weight:750; text-transform:uppercase; border:1px solid var(--line); background:var(--frame);
+    color:var(--ink-1); cursor:pointer; user-select:none; }
+  .scell.given { background:var(--surface-2); color:var(--ink-2); cursor:default; }
+  .scell.sel { background:var(--violet-soft); box-shadow:inset 0 0 0 2px var(--violet); }
+  .scell.bad { color:var(--danger); }
+  .scell.bR { border-right:2px solid var(--ink-3); }
+  .scell.bB { border-bottom:2px solid var(--ink-3); }
+  .sud-pal { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin:14px 0 2px; }
+  .sud-key { min-width:40px; height:42px; border:1px solid var(--line); border-radius:10px;
+    background:var(--surface-2); color:var(--ink-1); font:inherit; font-size:17px; font-weight:700;
+    text-transform:uppercase; cursor:pointer; transition:.14s; }
+  .sud-key:hover { background:var(--violet-soft); }
+  .sud-key.erase { color:var(--ink-3); display:grid; place-items:center; }
+  .sud-key.erase svg { width:16px; height:16px; }
   input.text { width:100%; padding:13px 15px; border:1px solid var(--line); border-radius:13px; font:inherit;
     font-size:16px; background:var(--surface-2); color:var(--ink-1); text-transform:uppercase; outline:none; }
   input.text:focus { border-color:var(--violet); box-shadow:0 0 0 3px var(--violet-soft); }
@@ -1360,6 +1378,7 @@ const WORD_GAMES = [
   { id:"cloze",    name:"Context Gap",     color:"violet", ico:I.book,    kind:"mount", mount:mountCloze },
   { id:"dictate",  name:"Dictation",       color:"cyan",   ico:I.volume,  kind:"mount", mount:mountDictate },
   { id:"recall",   name:"Recall",          color:"coral",  ico:I.target,  kind:"mount", mount:mountRecall },
+  { id:"sudoku",   name:"Word Sudoku",     color:"yellow", ico:I.grid,    kind:"mount", mount:mountSudoku },
 ];
 // Vendored open-source arcade games (see app/games/CREDITS.md). Each is served
 // from /games/<id>/ and saves/resumes via the bridge + the /api/state backend.
@@ -1787,6 +1806,111 @@ function mountRecall(host){
     onMiss:()=>{ $("#rmsg",host).innerHTML=`<span class="no">Not quite — the green letters are right.</span>`; }
   });
   $("#rskip",host).onclick=()=>{ $("#rmsg",host).innerHTML=`<div><span class="no">It was “${escHtml(c.word)}”.</span> ${imgAddBtn("rimgbtn",!!c.img)}</div>${imgSlot("rimg","sm")}`; wireAddImg(host,"rimgbtn",c,"rimg"); review(c.word,false); keyHandler=null; scheduleAdvance(()=>mountRecall(host),1600); };
+}
+
+// Word Sudoku — a mini 6×6 (2×3 boxes) whose six symbols are the six distinct
+// letters of a vocab word; the word is revealed on solve. A logic puzzle, so it's
+// a lighter word-themed break, but a solve still counts as a review (user choice).
+function pickSudokuWord(){
+  const distinct=w=>[...new Set((w||"").toLowerCase().replace(/[^a-z]/g,""))];
+  // prefer a 6-letter, all-distinct word (cleanest reveal)…
+  for(let i=0;i<50;i++){ const c=pickWeighted(); const d=distinct(c.word);
+    if(c.word.replace(/[^a-z]/gi,"").length===6 && d.length===6) return {c, letters:d}; }
+  // …otherwise any word with at least six distinct letters (use the first six).
+  for(let i=0;i<50;i++){ const c=pickWeighted(); const d=distinct(c.word); if(d.length>=6) return {c, letters:d.slice(0,6)}; }
+  const any=DECK.map(c=>({c,d:distinct(c.word)})).filter(x=>x.d.length>=6).sort((a,b)=>a.d.length-b.d.length)[0];
+  return any ? {c:any.c, letters:any.d.slice(0,6)} : null;
+}
+// Build a full valid 6×6 solution over `symbols` (rows, cols and 2×3 boxes each
+// hold every symbol once) by randomized backtracking.
+function genSudoku(symbols){
+  const N=6, grid=Array.from({length:N},()=>Array(N).fill(""));
+  const shuffle=a=>{ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+  const ok=(r,c,v)=>{
+    for(let i=0;i<N;i++){ if(grid[r][i]===v||grid[i][c]===v) return false; }
+    const br=Math.floor(r/2)*2, bc=Math.floor(c/3)*3;
+    for(let dr=0;dr<2;dr++) for(let dc=0;dc<3;dc++) if(grid[br+dr][bc+dc]===v) return false;
+    return true;
+  };
+  const solve=(pos=0)=>{
+    if(pos===N*N) return true;
+    const r=Math.floor(pos/N), c=pos%N;
+    for(const v of shuffle(symbols)){ if(ok(r,c,v)){ grid[r][c]=v; if(solve(pos+1)) return true; grid[r][c]=""; } }
+    return false;
+  };
+  solve();
+  return grid;
+}
+function mountSudoku(host){
+  keyHandler=null;
+  const picked=pickSudokuWord();
+  if(!picked){ host.innerHTML=`<div class="center">${gameHead("WORD SUDOKU")}<p class="game-clue" style="margin:26px auto">Word Sudoku needs a word with six different letters. Add a few longer words to your deck and come back.</p></div>`; return; }
+  const c=picked.c, S=picked.letters, N=6;
+  const sol=genSudoku(S);
+  const given=Array.from({length:N},()=>Array(N).fill(true));
+  const cells=[]; for(let r=0;r<N;r++) for(let k=0;k<N;k++) cells.push([r,k]);
+  for(let i=cells.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [cells[i],cells[j]]=[cells[j],cells[i]]; }
+  cells.slice(0,18).forEach(([r,k])=>given[r][k]=false);   // blank 18 of 36
+  const val=Array.from({length:N},(_,r)=>Array.from({length:N},(_,k)=>given[r][k]?sol[r][k]:""));
+  let sel=cells.find(([r,k])=>!given[r][k])||null, done=false;
+
+  const conflicts=()=>{
+    const bad=Array.from({length:N},()=>Array(N).fill(false));
+    const mark=arr=>{ const seen={}; arr.forEach(([r,k])=>{ const v=val[r][k]; if(!v)return; (seen[v]=seen[v]||[]).push([r,k]); });
+      Object.values(seen).forEach(l=>{ if(l.length>1) l.forEach(([r,k])=>bad[r][k]=true); }); };
+    for(let r=0;r<N;r++) mark(Array.from({length:N},(_,k)=>[r,k]));
+    for(let k=0;k<N;k++) mark(Array.from({length:N},(_,r)=>[r,k]));
+    for(let b=0;b<6;b++){ const br=Math.floor(b/2)*2, bc=(b%2)*3, arr=[];
+      for(let dr=0;dr<2;dr++) for(let dc=0;dc<3;dc++) arr.push([br+dr,bc+dc]); mark(arr); }
+    return bad;
+  };
+  const isFull=()=>val.every(row=>row.every(Boolean));
+  const render=()=>{
+    const bad=conflicts();
+    const grid=val.map((row,r)=>row.map((v,k)=>{
+      const cls=["scell"];
+      if(given[r][k]) cls.push("given");
+      if(sel&&sel[0]===r&&sel[1]===k) cls.push("sel");
+      if(bad[r][k]) cls.push("bad");
+      if(k%3===2 && k<5) cls.push("bR");
+      if(r%2===1 && r<5) cls.push("bB");
+      return `<div class="${cls.join(" ")}" data-r="${r}" data-c="${k}">${escHtml(v)}</div>`;
+    }).join("")).join("");
+    host.innerHTML=`<div class="center">
+      ${gameHead("WORD SUDOKU")}
+      <div class="game-clue">Each row, column & box uses every letter once.</div>
+      ${gameMeta({lang:c.lang})}
+      <div class="sudoku" id="sgrid">${grid}</div>
+      <div class="sud-pal">${S.map(l=>`<button class="sud-key" data-k="${escHtml(l)}">${escHtml(l)}</button>`).join("")}<button class="sud-key erase" data-k="" title="Clear" aria-label="Clear">${I.x}</button></div>
+      <div class="msg" id="sudmsg"></div>
+      <div class="game-actions"><button class="btn ghost" id="snew">New</button></div></div>`;
+    host.querySelectorAll(".scell").forEach(el=>{ if(el.classList.contains("given")) return;
+      el.onclick=()=>{ sel=[+el.dataset.r,+el.dataset.c]; render(); }; });
+    host.querySelectorAll(".sud-key").forEach(b=>b.onclick=()=>place(b.dataset.k));
+    $("#snew",host).onclick=()=>{ review(c.word,false); mountSudoku(host); };
+  };
+  const place=k=>{
+    if(done||!sel) return;
+    const [r,cc]=sel; if(given[r][cc]) return;
+    val[r][cc]=S.includes(k)?k:"";
+    if(isFull() && !conflicts().some(row=>row.some(Boolean))){
+      done=true; sel=null; render(); typeWin(host,c,"#sudmsg","sudoku",()=>mountSudoku(host)); return;
+    }
+    render();
+  };
+  render();
+  keyHandler=e=>{
+    if(done) return;
+    const k=e.key.toLowerCase();
+    if(k==="backspace"||k==="delete"){ e.preventDefault(); place(""); return; }
+    if(sel){
+      if(k==="arrowup"&&sel[0]>0){ e.preventDefault(); sel=[sel[0]-1,sel[1]]; render(); return; }
+      if(k==="arrowdown"&&sel[0]<N-1){ e.preventDefault(); sel=[sel[0]+1,sel[1]]; render(); return; }
+      if(k==="arrowleft"&&sel[1]>0){ e.preventDefault(); sel=[sel[0],sel[1]-1]; render(); return; }
+      if(k==="arrowright"&&sel[1]<N-1){ e.preventDefault(); sel=[sel[0],sel[1]+1]; render(); return; }
+    }
+    if(S.includes(k)) place(k);
+  };
 }
 
 /* ---------------- PROGRESS ---------------- */
