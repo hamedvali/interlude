@@ -394,18 +394,7 @@
   .game-card.yellow .gc-ico { background:var(--yellow-soft); color:var(--yellow); }
   .game-card.coral  .gc-ico { background:var(--coral-soft);  color:var(--coral); }
   .game-card.cyan   .gc-ico { background:var(--cyan-soft);   color:var(--cyan); }
-  .game-card.on { color:#fff; border-color:transparent; }
-  .game-card.on .gc-name { color:#fff; } .game-card.on .gc-sub { color:rgba(255,255,255,.8); }
-  .game-card.on .gc-ico { background:rgba(255,255,255,.22); color:#fff; }
-  .game-card.on.violet { background:linear-gradient(135deg,#8A5EF2,#6E39E6); }
-  .game-card.on.yellow { background:linear-gradient(135deg,#F6C948,#EAAB1C); }
-  .game-card.on.coral  { background:linear-gradient(135deg,#FCA07E,#F0714B); }
-  .game-card.on.cyan   { background:linear-gradient(135deg,#5FD6E4,#2FB2C6); }
-  .toggle { width:34px; height:19px; border-radius:999px; background:var(--line); position:relative; flex:0 0 auto; transition:.15s; }
-  .toggle::after { content:""; position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%;
-    background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.22); transition:.15s; }
-  .toggle.on { background:rgba(255,255,255,.5); } .toggle.on::after { left:17px; }
-  /* arcade launcher card — "enter" arrow instead of a toggle */
+  /* launcher card — "enter" arrow; tap to open the game full-page */
   .gc-go { width:26px; height:26px; border-radius:9px; display:grid; place-items:center;
     color:var(--ink-3); background:var(--surface-2); transition:.15s; flex:0 0 auto; }
   .gc-go svg { width:16px; height:16px; }
@@ -1064,7 +1053,7 @@ function renderLearn(){
     <div id="learnBody"></div>`;
   el.querySelectorAll("[data-lt]").forEach(b=>b.onclick=()=>{
     if(b.dataset.lt===learnTab) return;
-    learnTab=b.dataset.lt; wordsEdit=null; wordsPacks=false; persistNav(); renderLearn();
+    learnTab=b.dataset.lt; wordsEdit=null; wordsPacks=false; wordGamePlaying=null; persistNav(); renderLearn();
   });
   const body=$("#learnBody",el);
   if(learnTab==="practice") renderPractice(body);
@@ -1399,38 +1388,44 @@ const ARCADE_GAMES = [
   // { id:"tictactoe",  name:"Tic-Tac-Toe", color:"coral",  ico:I.xo,      kind:"arcade" },
 ];
 const ALL_GAMES = ()=> WORD_GAMES.concat(ARCADE_GAMES);
-let activeWordGame = WORD_GAMES[0].id;
+let wordGamePlaying = null;  // id of the word game currently open, or null (launcher)
 let arcadePlaying  = null;   // id of the arcade game currently open, or null (launcher)
 let arcadeFrame=null;
 
-function gameCard(g, activeId){
-  const on=g.id===activeId;
-  let sub;
-  if(g.kind==="arcade"){
-    const rec=(STATE.arcade||{})[g.id];
-    const has=rec && rec.store && rec.store!=="{}";
-    sub = rec && rec.best ? ("Best "+rec.best) : (has ? "Resume" : "Play");
-  } else {
-    const best=STATE.games[g.id]?.best||0, wins=STATE.games[g.id]?.wins||0;
-    sub = g.id==="wordle" ? ("Best "+best) : (wins+" won");
-  }
-  return `<button class="game-card ${g.color} ${on?'on':''}" data-g="${g.id}">
-      <div class="gc-top"><span class="gc-ico">${g.ico}</span><span class="toggle ${on?'on':''}"></span></div>
+// Word-game launcher card — like the Arcade cards: tap to open the game full-page.
+function gameCard(g){
+  const best=STATE.games[g.id]?.best||0, wins=STATE.games[g.id]?.wins||0;
+  const sub = g.id==="wordle" ? ("Best "+best) : (wins+" won");
+  return `<button class="game-card arcade-launch ${g.color}" data-g="${g.id}">
+      <div class="gc-top"><span class="gc-ico">${g.ico}</span><span class="gc-go">${I.enter}</span></div>
       <div class="gc-name">${g.name}</div>
       <div class="gc-sub">${sub}</div>
     </button>`;
 }
-// Word games — lives inside Learn ▸ Games.
+// Word games — lives inside Learn ▸ Games. A launcher grid by default; clicking a
+// card opens that game full-section with a Back button (mirrors the Arcade).
 function renderWordGames(host){
   arcadeFrame=null;
   if(!DECK.length){ host.innerHTML=deckEmptyCard("play the word games"); wireDeckEmpty(host); keyHandler=null; return; }
-  host.innerHTML=`
-    <div class="game-grid">${WORD_GAMES.map(g=>gameCard(g,activeWordGame)).join("")}</div>
-    <div class="card" id="wgame"></div>`;
-  host.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{ activeWordGame=b.dataset.g; renderWordGames(host); });
+  if(wordGamePlaying){
+    const g=WORD_GAMES.find(x=>x.id===wordGamePlaying);
+    if(!g){ wordGamePlaying=null; renderWordGames(host); return; }
+    host.innerHTML=`
+      <div class="arcade-player">
+        <div class="arcade-bar">
+          <button class="btn ghost arcade-back" id="wgBack">${I.back}<span>Back</span></button>
+          <div class="arcade-title">${escHtml(g.name)}</div>
+        </div>
+        <div class="card" id="wgame"></div>
+      </div>`;
+    $("#wgBack",host).onclick=()=>{ wordGamePlaying=null; keyHandler=null; persistNav(); renderWordGames(host); };
+    keyHandler=null;
+    bumpGame(g.id,"played"); g.mount($("#wgame",host));
+    return;
+  }
+  host.innerHTML=`<div class="game-grid">${WORD_GAMES.map(gameCard).join("")}</div>`;
+  host.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{ wordGamePlaying=b.dataset.g; persistNav(); renderWordGames(host); });
   keyHandler=null;
-  const g=WORD_GAMES.find(x=>x.id===activeWordGame);
-  bumpGame(activeWordGame,"played"); g.mount($("#wgame",host));
 }
 // Arcade launcher card — no toggle; clicking it opens the game.
 function arcadeCard(g){
@@ -2257,7 +2252,7 @@ let curView="learn";
 // the window lands exactly where they left off (see restoreNav in init).
 function persistNav(){
   if(!STATE) return;
-  STATE.nav={ view:curView, learnTab, social:socialSite, arcade:arcadePlaying };
+  STATE.nav={ view:curView, learnTab, social:socialSite, arcade:arcadePlaying, wordGame:wordGamePlaying };
   save();
 }
 // Restore the last-visited location (view + inner state) from STATE.nav. Each
@@ -2267,6 +2262,7 @@ function restoreNav(){
   if(LEARN_TABS.some(t=>t.v===nav.learnTab)) learnTab=nav.learnTab;
   if(SOCIAL.some(s=>s.id===nav.social)) socialSite=nav.social;
   if(ARCADE_GAMES.some(g=>g.id===nav.arcade)) arcadePlaying=nav.arcade;   // switchView clears this unless we land on Arcade
+  if(WORD_GAMES.some(g=>g.id===nav.wordGame)) wordGamePlaying=nav.wordGame; // reopens the word game if we land on Learn ▸ Games
   const view=["learn","game","social","settings"].includes(nav.view)?nav.view:"learn";
   // The Practice tab randomizes its own activity on entry (see renderPractice),
   // so landing there on open already varies between flashcard and word games —
@@ -2275,6 +2271,7 @@ function restoreNav(){
 }
 function switchView(v){
   if(v!=="game"){ postArcade({type:"interlude:save"}); arcadePlaying=null; }  // save + reset to launcher when leaving Arcade
+  if(v!=="learn") wordGamePlaying=null;                                       // reset word games to launcher when leaving Learn
   curView=v;
   document.querySelectorAll(".rico").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
   document.querySelectorAll(".view").forEach(sec=>sec.classList.toggle("active",sec.id===v));
