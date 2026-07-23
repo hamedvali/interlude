@@ -494,24 +494,20 @@
   .gcell.miss { background:var(--surface-2); border-color:var(--line); color:var(--ink-3); }
   .gcell.filled { border-color:var(--ink-3); color:var(--ink-1); }
   .gcell.active { border-color:var(--violet); box-shadow:0 0 0 3px var(--violet-soft); }
-  /* Word Sudoku — 6x6 with 2x3 boxes; symbols are a word's six distinct letters */
-  .sudoku { display:grid; grid-template-columns:repeat(6,1fr); max-width:300px; margin:14px auto;
-    border:2px solid var(--ink-3); border-radius:10px; overflow:hidden; }
-  .scell { aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:18px;
-    font-weight:750; text-transform:uppercase; border:1px solid var(--line); background:var(--frame);
-    color:var(--ink-1); cursor:pointer; user-select:none; }
-  .scell.given { background:var(--surface-2); color:var(--ink-2); cursor:default; }
-  .scell.sel { background:var(--violet-soft); box-shadow:inset 0 0 0 2px var(--violet); }
-  .scell.bad { color:var(--danger); }
-  .scell.bR { border-right:2px solid var(--ink-3); }
-  .scell.bB { border-bottom:2px solid var(--ink-3); }
-  .sud-pal { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin:14px 0 2px; }
-  .sud-key { min-width:40px; height:42px; border:1px solid var(--line); border-radius:10px;
-    background:var(--surface-2); color:var(--ink-1); font:inherit; font-size:17px; font-weight:700;
-    text-transform:uppercase; cursor:pointer; transition:.14s; }
-  .sud-key:hover { background:var(--violet-soft); }
-  .sud-key.erase { color:var(--ink-3); display:grid; place-items:center; }
-  .sud-key.erase svg { width:16px; height:16px; }
+  /* Crossword — interlocking deck words; click a cell to switch across/down */
+  .xword { display:grid; gap:3px; margin:14px auto; justify-content:center; }
+  .xcell { position:relative; aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+    font-size:17px; font-weight:750; text-transform:uppercase; border:1px solid var(--line);
+    border-radius:5px; background:var(--frame); color:var(--ink-1); cursor:pointer; user-select:none; }
+  .xblock { aspect-ratio:1; }
+  .xcell.hl  { background:var(--violet-soft); }
+  .xcell.sel { background:var(--violet); color:#fff; border-color:transparent; }
+  .xcell.bad { color:var(--danger); }
+  .xnum { position:absolute; top:1px; left:3px; font-size:9px; font-weight:600; color:var(--ink-3); line-height:1; }
+  .xcell.sel .xnum { color:rgba(255,255,255,.8); }
+  .xclue { max-width:420px; margin:12px auto 0; font-size:14.5px; color:var(--ink-2); line-height:1.5; min-height:22px; }
+  .xdir { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.06em; color:var(--violet);
+    background:var(--violet-soft); border-radius:999px; padding:2px 9px; margin-right:8px; vertical-align:middle; }
   input.text { width:100%; padding:13px 15px; border:1px solid var(--line); border-radius:13px; font:inherit;
     font-size:16px; background:var(--surface-2); color:var(--ink-1); text-transform:uppercase; outline:none; }
   input.text:focus { border-color:var(--violet); box-shadow:0 0 0 3px var(--violet-soft); }
@@ -660,6 +656,7 @@
     .lbox { width:34px; height:44px; font-size:19px; }
     .grid-guess { gap:5px; }
     .gcell { flex-basis:38px; font-size:17px; }
+    .xword { gap:2px; } .xcell { font-size:14px; } .xnum { font-size:8px; }
     input.text { font-size:15px; }
 
     /* progress */
@@ -1367,7 +1364,7 @@ const WORD_GAMES = [
   { id:"cloze",    name:"Context Gap",     color:"violet", ico:I.book,    kind:"mount", mount:mountCloze },
   { id:"dictate",  name:"Dictation",       color:"cyan",   ico:I.volume,  kind:"mount", mount:mountDictate },
   { id:"recall",   name:"Recall",          color:"coral",  ico:I.target,  kind:"mount", mount:mountRecall },
-  { id:"sudoku",   name:"Word Sudoku",     color:"yellow", ico:I.grid,    kind:"mount", mount:mountSudoku },
+  { id:"crossword",name:"Crossword",       color:"yellow", ico:I.grid,    kind:"mount", mount:mountCrossword },
 ];
 // Vendored open-source arcade games (see app/games/CREDITS.md). Each is served
 // from /games/<id>/ and saves/resumes via the bridge + the /api/state backend.
@@ -1803,108 +1800,149 @@ function mountRecall(host){
   $("#rskip",host).onclick=()=>{ $("#rmsg",host).innerHTML=`<div><span class="no">It was “${escHtml(c.word)}”.</span> ${imgAddBtn("rimgbtn",!!c.img)}</div>${imgSlot("rimg","sm")}`; wireAddImg(host,"rimgbtn",c,"rimg"); review(c.word,false); keyHandler=null; scheduleAdvance(()=>mountRecall(host),1600); };
 }
 
-// Word Sudoku — a mini 6×6 (2×3 boxes) whose six symbols are the six distinct
-// letters of a vocab word; the word is revealed on solve. A logic puzzle, so it's
-// a lighter word-themed break, but a solve still counts as a review (user choice).
-function pickSudokuWord(){
-  const distinct=w=>[...new Set((w||"").toLowerCase().replace(/[^a-z]/g,""))];
-  // prefer a 6-letter, all-distinct word (cleanest reveal)…
-  for(let i=0;i<50;i++){ const c=pickWeighted(); const d=distinct(c.word);
-    if(c.word.replace(/[^a-z]/gi,"").length===6 && d.length===6) return {c, letters:d}; }
-  // …otherwise any word with at least six distinct letters (use the first six).
-  for(let i=0;i<50;i++){ const c=pickWeighted(); const d=distinct(c.word); if(d.length>=6) return {c, letters:d.slice(0,6)}; }
-  const any=DECK.map(c=>({c,d:distinct(c.word)})).filter(x=>x.d.length>=6).sort((a,b)=>a.d.length-b.d.length)[0];
-  return any ? {c:any.c, letters:any.d.slice(0,6)} : null;
-}
-// Build a full valid 6×6 solution over `symbols` (rows, cols and 2×3 boxes each
-// hold every symbol once) by randomized backtracking.
-function genSudoku(symbols){
-  const N=6, grid=Array.from({length:N},()=>Array(N).fill(""));
+// Crossword — deck words interlock on shared letters; you solve the empty grid
+// from the clues (each word's definition). Clicking a cell selects its across word
+// (highlight + clue below the board); clicking again toggles to the down word.
+// Build an interlocking layout from deck words, or null if it can't.
+function buildCrossword(){
+  const clean=w=>(w||"").toLowerCase().replace(/[^a-z]/g,"");
   const shuffle=a=>{ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
-  const ok=(r,c,v)=>{
-    for(let i=0;i<N;i++){ if(grid[r][i]===v||grid[i][c]===v) return false; }
-    const br=Math.floor(r/2)*2, bc=Math.floor(c/3)*3;
-    for(let dr=0;dr<2;dr++) for(let dc=0;dc<3;dc++) if(grid[br+dr][bc+dc]===v) return false;
-    return true;
-  };
-  const solve=(pos=0)=>{
-    if(pos===N*N) return true;
-    const r=Math.floor(pos/N), c=pos%N;
-    for(const v of shuffle(symbols)){ if(ok(r,c,v)){ grid[r][c]=v; if(solve(pos+1)) return true; grid[r][c]=""; } }
-    return false;
-  };
-  solve();
-  return grid;
-}
-function mountSudoku(host){
-  keyHandler=null;
-  const picked=pickSudokuWord();
-  if(!picked){ host.innerHTML=`<div class="center">${gameHead("WORD SUDOKU")}<p class="game-clue" style="margin:26px auto">Word Sudoku needs a word with six different letters. Add a few longer words to your deck and come back.</p></div>`; return; }
-  const c=picked.c, S=picked.letters, N=6;
-  const sol=genSudoku(S);
-  const given=Array.from({length:N},()=>Array(N).fill(true));
-  const cells=[]; for(let r=0;r<N;r++) for(let k=0;k<N;k++) cells.push([r,k]);
-  for(let i=cells.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [cells[i],cells[j]]=[cells[j],cells[i]]; }
-  cells.slice(0,18).forEach(([r,k])=>given[r][k]=false);   // blank 18 of 36
-  const val=Array.from({length:N},(_,r)=>Array.from({length:N},(_,k)=>given[r][k]?sol[r][k]:""));
-  let sel=cells.find(([r,k])=>!given[r][k])||null, done=false;
+  const seen=new Set();
+  const pool=shuffle(DECK.filter(d=>d.def).map(d=>({answer:clean(d.word), clue:d.def}))
+    .filter(x=>x.answer.length>=3 && x.answer.length<=8 && !seen.has(x.answer) && seen.add(x.answer)));
+  if(pool.length<4) return null;
 
-  const conflicts=()=>{
-    const bad=Array.from({length:N},()=>Array(N).fill(false));
-    const mark=arr=>{ const seen={}; arr.forEach(([r,k])=>{ const v=val[r][k]; if(!v)return; (seen[v]=seen[v]||[]).push([r,k]); });
-      Object.values(seen).forEach(l=>{ if(l.length>1) l.forEach(([r,k])=>bad[r][k]=true); }); };
-    for(let r=0;r<N;r++) mark(Array.from({length:N},(_,k)=>[r,k]));
-    for(let k=0;k<N;k++) mark(Array.from({length:N},(_,r)=>[r,k]));
-    for(let b=0;b<6;b++){ const br=Math.floor(b/2)*2, bc=(b%2)*3, arr=[];
-      for(let dr=0;dr<2;dr++) for(let dc=0;dc<3;dc++) arr.push([br+dr,bc+dc]); mark(arr); }
-    return bad;
-  };
-  const isFull=()=>val.every(row=>row.every(Boolean));
-  const render=()=>{
-    const bad=conflicts();
-    const grid=val.map((row,r)=>row.map((v,k)=>{
-      const cls=["scell"];
-      if(given[r][k]) cls.push("given");
-      if(sel&&sel[0]===r&&sel[1]===k) cls.push("sel");
-      if(bad[r][k]) cls.push("bad");
-      if(k%3===2 && k<5) cls.push("bR");
-      if(r%2===1 && r<5) cls.push("bB");
-      return `<div class="${cls.join(" ")}" data-r="${r}" data-c="${k}">${escHtml(v)}</div>`;
-    }).join("")).join("");
-    host.innerHTML=`<div class="center">
-      ${gameHead("WORD SUDOKU")}
-      <div class="game-clue">Each row, column & box uses every letter once.</div>
-      ${gameMeta({lang:c.lang})}
-      <div class="sudoku" id="sgrid">${grid}</div>
-      <div class="sud-pal">${S.map(l=>`<button class="sud-key" data-k="${escHtml(l)}">${escHtml(l)}</button>`).join("")}<button class="sud-key erase" data-k="" title="Clear" aria-label="Clear">${I.x}</button></div>
-      <div class="msg" id="sudmsg"></div>
-      <div class="game-actions"><button class="btn ghost" id="snew">New</button></div></div>`;
-    host.querySelectorAll(".scell").forEach(el=>{ if(el.classList.contains("given")) return;
-      el.onclick=()=>{ sel=[+el.dataset.r,+el.dataset.c]; render(); }; });
-    host.querySelectorAll(".sud-key").forEach(b=>b.onclick=()=>place(b.dataset.k));
-    $("#snew",host).onclick=()=>{ review(c.word,false); mountSudoku(host); };
-  };
-  const place=k=>{
-    if(done||!sel) return;
-    const [r,cc]=sel; if(given[r][cc]) return;
-    val[r][cc]=S.includes(k)?k:"";
-    if(isFull() && !conflicts().some(row=>row.some(Boolean))){
-      done=true; sel=null; render(); typeWin(host,c,"#sudmsg","sudoku",()=>mountSudoku(host)); return;
+  const attempt=order=>{
+    const map=new Map(); const placed=[];               // map: "r,c"->letter
+    const at=(r,c)=>map.get(r+","+c);
+    // Try placing `answer` so it runs in `dir` starting at (row,col). Returns a
+    // placement (with crossing count) or null if it breaks crossword spacing.
+    const tryPlace=(answer,row,col,dir)=>{
+      const [dr,dc]=dir==="across"?[0,1]:[1,0];
+      if(at(row-dr,col-dc)!=null) return null;                       // cell before start
+      if(at(row+dr*answer.length,col+dc*answer.length)!=null) return null; // cell after end
+      let cross=0; const cells=[];
+      for(let i=0;i<answer.length;i++){
+        const r=row+dr*i, c=col+dc*i, ex=at(r,c);
+        if(ex!=null){ if(ex!==answer[i]) return null; cross++; }
+        else { const pr=dir==="across"?1:0, pc=dir==="across"?0:1;   // new cell: keep parallel neighbours clear
+          if(at(r-pr,c-pc)!=null||at(r+pr,c+pc)!=null) return null; }
+        cells.push([r,c]);
+      }
+      return {answer,row,col,dir,cells,cross};
+    };
+    const commit=p=>{ p.cells.forEach(([r,c],i)=>map.set(r+","+c,p.answer[i])); placed.push(p); };
+    commit({answer:order[0].answer, clue:order[0].clue, row:0, col:0, dir:"across",
+            cells:order[0].answer.split("").map((_,i)=>[0,i])});
+    for(let pi=1; pi<order.length && placed.length<6; pi++){
+      const cand=order[pi]; let best=null;
+      for(let i=0;i<cand.answer.length;i++){
+        for(const [k,ch] of map){
+          if(ch!==cand.answer[i]) continue;
+          const [r,c]=k.split(",").map(Number);
+          for(const dir of ["across","down"]){
+            const [dr,dc]=dir==="across"?[0,1]:[1,0];
+            const p=tryPlace(cand.answer, r-dr*i, c-dc*i, dir);
+            if(p && p.cross>=1 && (!best||p.cross>best.cross)) best=p;
+          }
+        }
+      }
+      if(best){ best.clue=cand.clue; commit(best); }
     }
-    render();
+    return placed;
   };
+
+  const dimOf=p=>{ let a=1e9,b=1e9,c=-1e9,d=-1e9; p.forEach(w=>w.cells.forEach(([r,cc])=>{a=Math.min(a,r);b=Math.min(b,cc);c=Math.max(c,r);d=Math.max(d,cc);})); return Math.max(c-a+1,d-b+1); };
+  let placed=null, placedDim=1e9;
+  for(let t=0;t<14;t++){                    // prefer 5+ words in a compact (≤11) grid
+    const p=attempt(shuffle(pool)); const dim=dimOf(p);
+    if(!placed || p.length>placed.length || (p.length===placed.length && dim<placedDim)){ placed=p; placedDim=dim; }
+    if(placed.length>=5 && placedDim<=11) break;
+  }
+  if(!placed || placed.length<3) return null;
+
+  let minR=1e9,minC=1e9,maxR=-1e9,maxC=-1e9;
+  placed.forEach(p=>p.cells.forEach(([r,c])=>{ minR=Math.min(minR,r);minC=Math.min(minC,c);maxR=Math.max(maxR,r);maxC=Math.max(maxC,c); }));
+  const H=maxR-minR+1, W=maxC-minC+1;
+  const grid=Array.from({length:H},()=>Array(W).fill(null));
+  const words=placed.map(p=>({ answer:p.answer, clue:p.clue, dir:p.dir, cells:p.cells.map(([r,c])=>[r-minR,c-minC]) }));
+  words.forEach(w=>w.cells.forEach(([r,c],i)=>grid[r][c]=w.answer[i]));
+  const acrossOf=Array.from({length:H},()=>Array(W).fill(-1));
+  const downOf=Array.from({length:H},()=>Array(W).fill(-1));
+  words.forEach((w,wi)=>w.cells.forEach(([r,c])=>{ (w.dir==="across"?acrossOf:downOf)[r][c]=wi; }));
+  const num=Array.from({length:H},()=>Array(W).fill(0)); let n=0;
+  for(let r=0;r<H;r++) for(let c=0;c<W;c++){
+    if(grid[r][c]==null) continue;
+    const sA=acrossOf[r][c]>=0 && (c===0||grid[r][c-1]==null);
+    const sD=downOf[r][c]>=0 && (r===0||grid[r-1][c]==null);
+    if(sA||sD) num[r][c]=++n;
+  }
+  words.forEach(w=>{ const [r,c]=w.cells[0]; w.num=num[r][c]; });
+  return { grid, W, H, words, acrossOf, downOf, num };
+}
+function mountCrossword(host){
+  keyHandler=null;
+  const cw=buildCrossword();
+  if(!cw){ host.innerHTML=`<div class="center">${gameHead("CROSSWORD")}<p class="game-clue" style="margin:26px auto">Crossword needs a few short words with definitions. Add some to your deck and come back.</p></div>`; return; }
+  const {grid,W,H,words,acrossOf,downOf,num}=cw;
+  const entry=Array.from({length:H},()=>Array(W).fill(""));
+  let sel=[words[0].cells[0][0], words[0].cells[0][1]], dir=words[0].dir, done=false, showBad=false;
+
+  const fixDir=()=>{ if(!sel) return; const a=acrossOf[sel[0]][sel[1]], d=downOf[sel[0]][sel[1]];
+    if(dir==="across"&&a<0&&d>=0) dir="down"; else if(dir==="down"&&d<0&&a>=0) dir="across"; };
+  const curWord=()=>{ fixDir(); const i=dir==="across"?acrossOf[sel[0]][sel[1]]:downOf[sel[0]][sel[1]]; return i>=0?words[i]:null; };
+  const isFull=()=>words.every(w=>w.cells.every(([r,c])=>entry[r][c]));
+  const allCorrect=()=>words.every(w=>w.cells.every(([r,c],i)=>entry[r][c]===w.answer[i]));
+
+  const render=()=>{
+    fixDir();
+    const w=curWord(), inCur=(r,c)=>w && w.cells.some(([a,b])=>a===r&&b===c);
+    let html="";
+    for(let r=0;r<H;r++) for(let c=0;c<W;c++){
+      if(grid[r][c]==null){ html+=`<div class="xblock"></div>`; continue; }
+      const cls=["xcell"];
+      if(sel&&sel[0]===r&&sel[1]===c) cls.push("sel"); else if(inCur(r,c)) cls.push("hl");
+      if((done||showBad) && entry[r][c] && entry[r][c]!==grid[r][c]) cls.push("bad");
+      html+=`<div class="${cls.join(" ")}" data-r="${r}" data-c="${c}">${num[r][c]?`<span class="xnum">${num[r][c]}</span>`:""}${escHtml((entry[r][c]||"").toUpperCase())}</div>`;
+    }
+    const clue = w ? `<span class="xdir">${w.num} ${w.dir.toUpperCase()}</span> ${escHtml(w.clue)}` : "";
+    host.innerHTML=`<div class="center">
+      ${gameHead("CROSSWORD")}
+      <div class="game-clue">Type to fill · click a cell to switch across/down.</div>
+      <div class="xword" id="xgrid" style="grid-template-columns:repeat(${W},1fr);max-width:min(360px,${W*40}px)">${html}</div>
+      <div class="xclue" id="xclue">${clue}</div>
+      <div class="msg" id="xmsg"></div>
+      <div class="game-actions"><button class="btn ghost" id="xreveal">Reveal word</button><button class="btn ghost" id="xnew">New</button></div></div>`;
+    host.querySelectorAll(".xcell").forEach(el=>el.onclick=()=>{
+      const r=+el.dataset.r, c=+el.dataset.c;
+      if(sel&&sel[0]===r&&sel[1]===c){ const o=dir==="across"?"down":"across"; if((o==="across"?acrossOf:downOf)[r][c]>=0) dir=o; }
+      else { sel=[r,c]; dir=acrossOf[r][c]>=0?"across":"down"; }
+      render();
+    });
+    $("#xreveal",host).onclick=()=>{ if(done) return; const cw=curWord(); if(cw){ cw.cells.forEach(([r,c],i)=>entry[r][c]=cw.answer[i]); showBad=false; render(); maybeWin(); } };
+    $("#xnew",host).onclick=()=>mountCrossword(host);
+  };
+  const maybeWin=()=>{
+    if(done) return;
+    if(!isFull()){ showBad=false; return; }
+    if(allCorrect()){ done=true; render(); $("#xmsg",host).innerHTML=`<span class="ok">${I.checkmini} Solved — ${words.length} words!</span>`; bumpGame("crossword","wins"); keyHandler=null; }
+    else { showBad=true; render(); $("#xmsg",host).innerHTML=`<span class="no">Not quite — check the red letters.</span>`; }
+  };
+  const advance=()=>{ const w=curWord(); if(!w) return; const i=w.cells.findIndex(([r,c])=>r===sel[0]&&c===sel[1]); if(i>=0&&i<w.cells.length-1) sel=[w.cells[i+1][0],w.cells[i+1][1]]; };
+  const stepBack=()=>{ const w=curWord(); if(!w) return; const i=w.cells.findIndex(([r,c])=>r===sel[0]&&c===sel[1]); if(i>0) sel=[w.cells[i-1][0],w.cells[i-1][1]]; };
+  const moveSel=key=>{ if(!sel) return; let [r,c]=sel;
+    const step=(dr,dc)=>{ let nr=r+dr,nc=c+dc; while(nr>=0&&nr<H&&nc>=0&&nc<W){ if(grid[nr][nc]!=null){ sel=[nr,nc]; return; } nr+=dr;nc+=dc; } };
+    if(key==="ArrowLeft"){ dir="across"; step(0,-1); } else if(key==="ArrowRight"){ dir="across"; step(0,1); }
+    else if(key==="ArrowUp"){ dir="down"; step(-1,0); } else if(key==="ArrowDown"){ dir="down"; step(1,0); } };
+
   render();
   keyHandler=e=>{
     if(done) return;
-    const k=e.key.toLowerCase();
-    if(k==="backspace"||k==="delete"){ e.preventDefault(); place(""); return; }
-    if(sel){
-      if(k==="arrowup"&&sel[0]>0){ e.preventDefault(); sel=[sel[0]-1,sel[1]]; render(); return; }
-      if(k==="arrowdown"&&sel[0]<N-1){ e.preventDefault(); sel=[sel[0]+1,sel[1]]; render(); return; }
-      if(k==="arrowleft"&&sel[1]>0){ e.preventDefault(); sel=[sel[0],sel[1]-1]; render(); return; }
-      if(k==="arrowright"&&sel[1]<N-1){ e.preventDefault(); sel=[sel[0],sel[1]+1]; render(); return; }
-    }
-    if(S.includes(k)) place(k);
+    const k=e.key;
+    if(/^[a-zA-Z]$/.test(k)){ e.preventDefault(); if(!sel) return; entry[sel[0]][sel[1]]=k.toLowerCase(); showBad=false; advance(); render(); maybeWin(); return; }
+    if(k==="Backspace"){ e.preventDefault(); if(!sel) return; if(entry[sel[0]][sel[1]]) entry[sel[0]][sel[1]]=""; else { stepBack(); entry[sel[0]][sel[1]]=""; } showBad=false; render(); return; }
+    if(k.startsWith("Arrow")){ e.preventDefault(); moveSel(k); render(); return; }
+    if(k===" "||k==="Enter"){ e.preventDefault(); const o=dir==="across"?"down":"across"; if((o==="across"?acrossOf:downOf)[sel[0]][sel[1]]>=0){ dir=o; render(); } return; }
   };
 }
 
