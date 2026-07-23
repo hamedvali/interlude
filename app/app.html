@@ -217,30 +217,6 @@
     padding:2px 7px; background:var(--surface-2); }
 
   /* ---------- Learn ---------- */
-  .grid-learn { display:grid; grid-template-columns:1fr 330px; gap:20px; align-items:start; }
-  .col-main { display:flex; flex-direction:column; gap:18px; }
-  .col-side { display:flex; flex-direction:column; gap:16px; }
-
-  .hero { position:relative; overflow:hidden; border-radius:var(--r-card); min-height:158px;
-    background:linear-gradient(115deg,var(--peach1),var(--peach2)); padding:26px 28px; display:flex; align-items:center; }
-  .hero-text { position:relative; z-index:2; max-width:60%; }
-  .hi { font-family:var(--serif); font-size:31px; font-weight:700; color:#B0591E; letter-spacing:-.01em; }
-  .hero-sub { margin:9px 0 15px; color:#96652F; font-size:14px; max-width:340px; line-height:1.5; }
-  .hero-stats { display:flex; gap:18px; }
-  .hstat { display:flex; align-items:center; gap:7px; font-size:13px; color:#8A5B2A; }
-  .hstat b { color:#6F4718; font-weight:700; }
-  .hstat svg { width:15px; height:15px; color:#C77C33; }
-  .hero-art { position:absolute; right:8px; top:0; bottom:0; width:238px; display:grid; place-items:center; z-index:1; }
-  :root[data-theme=dark] .hi, .hi { }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) .hi { color:#F0C58A; }
-    :root:not([data-theme=light]) .hero-sub { color:#C4A279; }
-    :root:not([data-theme=light]) .hstat { color:#C4A279; } :root:not([data-theme=light]) .hstat b { color:#EBD3AE; }
-    :root:not([data-theme=light]) .hstat svg { color:#E0B57E; } }
-  :root[data-theme=dark] .hi { color:#F0C58A; }
-  :root[data-theme=dark] .hero-sub { color:#C4A279; }
-  :root[data-theme=dark] .hstat { color:#C4A279; } :root[data-theme=dark] .hstat b { color:#EBD3AE; }
-  :root[data-theme=dark] .hstat svg { color:#E0B57E; }
-
   .flashcard { padding:22px 24px; }
   .fc-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
   .fc-eyebrow { font-size:11px; letter-spacing:.13em; color:var(--ink-3); font-weight:700; }
@@ -302,8 +278,6 @@
   .fc-hint { text-align:center; margin-top:14px; color:var(--ink-3); font-size:12px; }
 
   /* stat cards */
-  .side-head { display:flex; align-items:baseline; justify-content:space-between; }
-  .side-head h3 { font-size:14.5px; font-weight:750; margin:0; }
   .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:13px; }
   .stat-grid.four { grid-template-columns:repeat(4,1fr); }
   .stat-card { border-radius:18px; padding:15px 16px; color:#fff; min-height:104px;
@@ -568,10 +542,9 @@
     box-shadow:0 6px 18px rgba(0,0,0,.2); }
 
   @media (max-width:1040px) {
-    .grid-learn,.grid-prog { grid-template-columns:1fr; }
+    .grid-prog { grid-template-columns:1fr; }
     .stat-grid.four { grid-template-columns:repeat(2,1fr); }
     .game-grid { grid-template-columns:repeat(2,1fr); }
-    .hero-art { display:none; } .hero-text { max-width:100%; }
   }
 
   /* ---------- Settings ---------- */
@@ -655,11 +628,6 @@
     .scroller { padding:2px 14px 18px; }
 
     /* learn */
-    .grid-learn { gap:16px; }
-    .hero { min-height:0; padding:20px; }
-    .hi { font-size:25px; }
-    .hero-sub { font-size:13px; margin:7px 0 13px; max-width:100%; }
-    .hero-stats { gap:14px; }
     .flashcard { padding:18px; }
     .flash { min-height:168px; }
     .flash .word { font-size:31px; }
@@ -998,15 +966,6 @@ Object.assign(I, {
   image:`<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15.5 16 10 5 21"/></svg>`,
   layers:`<svg class="icon" viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></svg>`,
 });
-const HERO_ART = `<svg viewBox="0 0 220 150" width="220" height="150" fill="none" aria-hidden="true">
-  <circle cx="152" cy="44" r="27" fill="#F7B733"/><circle cx="152" cy="44" r="27" fill="#FBD277" opacity=".45"/>
-  <g fill="#ffffff" opacity=".85"><ellipse cx="58" cy="38" rx="26" ry="13"/><ellipse cx="94" cy="45" rx="19" ry="10"/></g>
-  <path d="M40 90l2.6 6.4 6.4 2.6-6.4 2.6L40 108l-2.6-6.4L31 99l6.4-2.6z" fill="#7C4DEB" opacity=".5"/>
-  <rect x="118" y="112" width="82" height="17" rx="4" fill="#7C4DEB"/>
-  <rect x="126" y="95" width="72" height="17" rx="4" fill="#F0714B"/>
-  <rect x="114" y="78" width="68" height="17" rx="4" fill="#F6C445"/>
-  <rect x="150" y="74" width="10" height="25" rx="2" fill="#E8654F"/>
-</svg>`;
 
 let DECK=[], BUILTIN=[], STATE=null, keyHandler=null;
 // The shipped words.json is stored as {word,pos,definition,example,distractors};
@@ -1112,40 +1071,16 @@ function renderPractice(host){
 function renderFlashcard(host){
   if(!DECK.length){ host.innerHTML=deckEmptyCard("start practicing"); wireDeckEmpty(host); keyHandler=null; return; }
   cur=pickWeighted(); flipped=false;
-  const s=computeStats(); const box=(STATE.words[cur.word]?.box)||1;
+  const box=(STATE.words[cur.word]?.box)||1;
   host.innerHTML=`
-    <div class="grid-learn">
-      <div class="col-main">
-        <div class="hero">
-          <div class="hero-text">
-            <div class="hi">Hello there!</div>
-            <p class="hero-sub">Turn the wait into words — run a few cards while Claude works.</p>
-            <div class="hero-stats">
-              <span class="hstat">${I.book}<b>${s.learning}</b> in progress</span>
-              <span class="hstat">${I.flame}<b>${s.streak}</b> day streak</span>
-            </div>
-          </div>
-          <div class="hero-art">${HERO_ART}</div>
-        </div>
-        <div class="card flashcard">
-          <div class="fc-head"><span class="fc-eyebrow">FLASHCARD</span><span class="pill-mini">Box ${box} / 5</span></div>
-          <div class="flash" id="flash"></div>
-          <div class="fc-actions">
-            <button class="btn ghost" id="miss">Again</button>
-            <button class="btn primary" id="got">I knew it</button>
-          </div>
-          <div class="fc-hint"><span class="kbd">Space</span> flip · <span class="kbd">1</span> Again · <span class="kbd">2</span> I knew it · <span class="kbd">P</span> say</div>
-        </div>
+    <div class="card flashcard">
+      <div class="fc-head"><span class="fc-eyebrow">FLASHCARD</span><span class="pill-mini">Box ${box} / 5</span></div>
+      <div class="flash" id="flash"></div>
+      <div class="fc-actions">
+        <button class="btn ghost" id="miss">Again</button>
+        <button class="btn primary" id="got">I knew it</button>
       </div>
-      <aside class="col-side">
-        <div class="side-head"><h3>This session</h3></div>
-        <div class="stat-grid">
-          ${statCard("violet",I.flame,s.streak,"Day streak")}
-          ${statCard("yellow",I.check,s.mastered,"Mastered")}
-          ${statCard("coral",I.rotate,s.reviews,"Reviews")}
-          ${statCard("cyan",I.target,s.acc+"%","Accuracy")}
-        </div>
-      </aside>
+      <div class="fc-hint"><span class="kbd">Space</span> flip · <span class="kbd">1</span> Again · <span class="kbd">2</span> I knew it · <span class="kbd">P</span> say</div>
     </div>`;
   const say=`<button class="say" id="sayBtn" type="button" title="Hear pronunciation" aria-label="Hear pronunciation">${I.volume}</button>`;
   const face=()=>{
