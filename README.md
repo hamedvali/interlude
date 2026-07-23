@@ -18,7 +18,7 @@ exactly when it's time to read or reply.
 [![Made with Python](https://img.shields.io/badge/python-3-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-zero-2ea44f)](#-how-it-works)
 [![No Dock icon](https://img.shields.io/badge/dock%20icon-none-7C4DEB)](#-how-it-works)
-[![Version](https://img.shields.io/badge/version-1.33.0-7C4DEB)](#)
+[![Version](https://img.shields.io/badge/version-1.34.0-7C4DEB)](#)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 
 <br />
@@ -233,8 +233,8 @@ feeds the same Leitner boxes, so playing them schedules your future reviews:
 - **Definition Quiz** — multiple choice, the gentlest retrieval, good for shaky new words.
 - **Scramble · Hangman · Wordle** — spelling-focused play that reinforces the letters.
 - **Crossword** — deck words interlock on shared letters; click a cell to switch across/down and read
-  that word's definition as the clue, then fill it from memory. A word-themed puzzle (it doesn't move
-  the boxes) that exercises several definitions at once.
+  that word's definition as the clue, then fill it from memory. Classic black-and-white grid; each word
+  you complete correctly promotes its box (a Reveal counts as a miss), so it exercises several words at once.
 
 A picture and a pronunciation appear on every answer reveal, so each round layers meaning, sound,
 and image onto the same word.

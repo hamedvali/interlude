@@ -494,17 +494,19 @@
   .gcell.miss { background:var(--surface-2); border-color:var(--line); color:var(--ink-3); }
   .gcell.filled { border-color:var(--ink-3); color:var(--ink-1); }
   .gcell.active { border-color:var(--violet); box-shadow:0 0 0 3px var(--violet-soft); }
-  /* Crossword — interlocking deck words; click a cell to switch across/down */
-  .xword { display:grid; gap:3px; margin:14px auto; justify-content:center; }
+  /* Crossword — classic black-and-white newspaper grid. The grid background is
+     black and cells sit 1px apart, so the gaps read as clean gridlines and the
+     black blocks merge into a solid square. Always paper-style (both themes). */
+  .xword { display:grid; gap:1px; margin:14px auto; justify-content:center;
+    background:#111; border:2px solid #111; }
   .xcell { position:relative; aspect-ratio:1; display:flex; align-items:center; justify-content:center;
-    font-size:17px; font-weight:750; text-transform:uppercase; border:1px solid var(--line);
-    border-radius:5px; background:var(--frame); color:var(--ink-1); cursor:pointer; user-select:none; }
-  .xblock { aspect-ratio:1; }
-  .xcell.hl  { background:var(--violet-soft); }
-  .xcell.sel { background:var(--violet); color:#fff; border-color:transparent; }
-  .xcell.bad { color:var(--danger); }
-  .xnum { position:absolute; top:1px; left:3px; font-size:9px; font-weight:600; color:var(--ink-3); line-height:1; }
-  .xcell.sel .xnum { color:rgba(255,255,255,.8); }
+    font-size:17px; font-weight:600; text-transform:uppercase; background:#fff; color:#111;
+    cursor:pointer; user-select:none; }
+  .xblock { aspect-ratio:1; background:#111; }
+  .xcell.hl  { background:#a8c7fa; }               /* active word — classic light blue */
+  .xcell.sel { background:#ffd54a; }               /* active cell — classic yellow */
+  .xcell.bad { color:#d32f2f; }
+  .xnum { position:absolute; top:1px; left:2px; font-size:9px; font-weight:600; color:#333; line-height:1; }
   .xclue { max-width:420px; margin:12px auto 0; font-size:14.5px; color:var(--ink-2); line-height:1.5; min-height:22px; }
   .xdir { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.06em; color:var(--violet);
     background:var(--violet-soft); border-radius:999px; padding:2px 9px; margin-right:8px; vertical-align:middle; }
@@ -656,7 +658,7 @@
     .lbox { width:34px; height:44px; font-size:19px; }
     .grid-guess { gap:5px; }
     .gcell { flex-basis:38px; font-size:17px; }
-    .xword { gap:2px; } .xcell { font-size:14px; } .xnum { font-size:8px; }
+    .xcell { font-size:14px; } .xnum { font-size:8px; }
     input.text { font-size:15px; }
 
     /* progress */
@@ -1808,7 +1810,7 @@ function buildCrossword(){
   const clean=w=>(w||"").toLowerCase().replace(/[^a-z]/g,"");
   const shuffle=a=>{ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
   const seen=new Set();
-  const pool=shuffle(DECK.filter(d=>d.def).map(d=>({answer:clean(d.word), clue:d.def}))
+  const pool=shuffle(DECK.filter(d=>d.def).map(d=>({answer:clean(d.word), clue:d.def, word:d.word}))
     .filter(x=>x.answer.length>=3 && x.answer.length<=8 && !seen.has(x.answer) && seen.add(x.answer)));
   if(pool.length<4) return null;
 
@@ -1832,7 +1834,7 @@ function buildCrossword(){
       return {answer,row,col,dir,cells,cross};
     };
     const commit=p=>{ p.cells.forEach(([r,c],i)=>map.set(r+","+c,p.answer[i])); placed.push(p); };
-    commit({answer:order[0].answer, clue:order[0].clue, row:0, col:0, dir:"across",
+    commit({answer:order[0].answer, clue:order[0].clue, word:order[0].word, row:0, col:0, dir:"across",
             cells:order[0].answer.split("").map((_,i)=>[0,i])});
     for(let pi=1; pi<order.length && placed.length<6; pi++){
       const cand=order[pi]; let best=null;
@@ -1847,7 +1849,7 @@ function buildCrossword(){
           }
         }
       }
-      if(best){ best.clue=cand.clue; commit(best); }
+      if(best){ best.clue=cand.clue; best.word=cand.word; commit(best); }
     }
     return placed;
   };
@@ -1865,7 +1867,7 @@ function buildCrossword(){
   placed.forEach(p=>p.cells.forEach(([r,c])=>{ minR=Math.min(minR,r);minC=Math.min(minC,c);maxR=Math.max(maxR,r);maxC=Math.max(maxC,c); }));
   const H=maxR-minR+1, W=maxC-minC+1;
   const grid=Array.from({length:H},()=>Array(W).fill(null));
-  const words=placed.map(p=>({ answer:p.answer, clue:p.clue, dir:p.dir, cells:p.cells.map(([r,c])=>[r-minR,c-minC]) }));
+  const words=placed.map(p=>({ answer:p.answer, clue:p.clue, word:p.word, dir:p.dir, cells:p.cells.map(([r,c])=>[r-minR,c-minC]) }));
   words.forEach(w=>w.cells.forEach(([r,c],i)=>grid[r][c]=w.answer[i]));
   const acrossOf=Array.from({length:H},()=>Array(W).fill(-1));
   const downOf=Array.from({length:H},()=>Array(W).fill(-1));
@@ -1887,10 +1889,15 @@ function mountCrossword(host){
   const {grid,W,H,words,acrossOf,downOf,num}=cw;
   const entry=Array.from({length:H},()=>Array(W).fill(""));
   let sel=[words[0].cells[0][0], words[0].cells[0][1]], dir=words[0].dir, done=false, showBad=false;
+  const scored=new Set();   // word indices already sent to the Leitner boxes (once each)
 
   const fixDir=()=>{ if(!sel) return; const a=acrossOf[sel[0]][sel[1]], d=downOf[sel[0]][sel[1]];
     if(dir==="across"&&a<0&&d>=0) dir="down"; else if(dir==="down"&&d<0&&a>=0) dir="across"; };
-  const curWord=()=>{ fixDir(); const i=dir==="across"?acrossOf[sel[0]][sel[1]]:downOf[sel[0]][sel[1]]; return i>=0?words[i]:null; };
+  const curIdx=()=>{ fixDir(); return dir==="across"?acrossOf[sel[0]][sel[1]]:downOf[sel[0]][sel[1]]; };
+  const curWord=()=>{ const i=curIdx(); return i>=0?words[i]:null; };
+  // Each word you complete correctly is a real recall → promote its box, once.
+  const scoreTyped=()=>{ words.forEach((w,wi)=>{ if(scored.has(wi)) return;
+    if(w.cells.every(([r,c],i)=>entry[r][c]===w.answer[i])){ scored.add(wi); review(w.word,true); } }); };
   const isFull=()=>words.every(w=>w.cells.every(([r,c])=>entry[r][c]));
   const allCorrect=()=>words.every(w=>w.cells.every(([r,c],i)=>entry[r][c]===w.answer[i]));
 
@@ -1919,7 +1926,9 @@ function mountCrossword(host){
       else { sel=[r,c]; dir=acrossOf[r][c]>=0?"across":"down"; }
       render();
     });
-    $("#xreveal",host).onclick=()=>{ if(done) return; const cw=curWord(); if(cw){ cw.cells.forEach(([r,c],i)=>entry[r][c]=cw.answer[i]); showBad=false; render(); maybeWin(); } };
+    $("#xreveal",host).onclick=()=>{ if(done) return; const wi=curIdx(); if(wi<0) return; const w=words[wi];
+      if(!scored.has(wi)){ scored.add(wi); review(w.word,false); }   // gave up on this word → a miss
+      w.cells.forEach(([r,c],i)=>entry[r][c]=w.answer[i]); showBad=false; render(); scoreTyped(); maybeWin(); };
     $("#xnew",host).onclick=()=>mountCrossword(host);
   };
   const maybeWin=()=>{
@@ -1939,7 +1948,7 @@ function mountCrossword(host){
   keyHandler=e=>{
     if(done) return;
     const k=e.key;
-    if(/^[a-zA-Z]$/.test(k)){ e.preventDefault(); if(!sel) return; entry[sel[0]][sel[1]]=k.toLowerCase(); showBad=false; advance(); render(); maybeWin(); return; }
+    if(/^[a-zA-Z]$/.test(k)){ e.preventDefault(); if(!sel) return; entry[sel[0]][sel[1]]=k.toLowerCase(); showBad=false; scoreTyped(); advance(); render(); maybeWin(); return; }
     if(k==="Backspace"){ e.preventDefault(); if(!sel) return; if(entry[sel[0]][sel[1]]) entry[sel[0]][sel[1]]=""; else { stepBack(); entry[sel[0]][sel[1]]=""; } showBad=false; render(); return; }
     if(k.startsWith("Arrow")){ e.preventDefault(); moveSel(k); render(); return; }
     if(k===" "||k==="Enter"){ e.preventDefault(); const o=dir==="across"?"down":"across"; if((o==="across"?acrossOf:downOf)[sel[0]][sel[1]]>=0){ dir=o; render(); } return; }
