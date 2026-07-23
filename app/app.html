@@ -524,7 +524,7 @@
   .life { width:9px; height:9px; border-radius:50%; background:var(--good); }
   .life.gone { background:var(--line); }
   .grid-guess { display:flex; gap:7px; justify-content:center; margin:6px 0; }
-  .gcell { width:44px; height:44px; border:1px solid var(--line); border-radius:10px; display:flex;
+  .gcell { flex:0 1 44px; min-width:0; aspect-ratio:1; border:1px solid var(--line); border-radius:10px; display:flex;
     align-items:center; justify-content:center; font-size:19px; font-weight:750; text-transform:uppercase; background:var(--surface-2); }
   .gcell.hit  { background:var(--good); border-color:var(--good); color:#fff; }
   .gcell.near { background:var(--warn); border-color:var(--warn); color:#fff; }
@@ -684,7 +684,7 @@
     .lboxes { gap:6px; margin:14px auto; }
     .lbox { width:34px; height:44px; font-size:19px; }
     .grid-guess { gap:5px; }
-    .gcell { width:38px; height:38px; font-size:17px; }
+    .gcell { flex-basis:38px; font-size:17px; }
     input.text { font-size:15px; }
 
     /* progress */
@@ -1642,8 +1642,19 @@ function mountHangman(host){
   keyHandler=(e)=>{ const l=e.key.toLowerCase(); if(/^[a-z]$/.test(l)&&!guessed.has(l)){ guessed.add(l); if(!word.includes(l)) wrong++; draw(); } };
 }
 
+// Wordle only works for short words: 6 guesses on a long word is unwinnable and
+// the grid overflows the narrow window. Prefer a 4–7 letter word; if the deck
+// has none, fall back to the shortest word available.
+function pickWordleWord(){
+  const clean=w=>(w||"").toLowerCase().replace(/[^a-z]/g,"");
+  for(let i=0;i<40;i++){ const cand=pickWeighted(); const n=clean(cand.word).length; if(n>=4&&n<=7) return cand; }
+  const inRange=DECK.filter(d=>{ const n=clean(d.word).length; return n>=4&&n<=7; });
+  if(inRange.length) return inRange[Math.floor(Math.random()*inRange.length)];
+  const longer=DECK.filter(d=>clean(d.word).length>=4).sort((a,b)=>clean(a.word).length-clean(b.word).length);
+  return longer[0] || pickWeighted();
+}
 function mountWordle(host){
-  const c=pickWeighted(); const word=c.word.toLowerCase().replace(/[^a-z]/g,""); const N=word.length, MAX=6;
+  const c=pickWordleWord(); const word=c.word.toLowerCase().replace(/[^a-z]/g,""); const N=word.length, MAX=6;
   let rows=[], current="", done=false;
   // A fully-submitted guess, graded into hit / near / miss cells.
   const gradedRow=g=>{
@@ -1667,7 +1678,7 @@ function mountWordle(host){
     for(let i=0;i<N;i++){ const d=document.createElement("div"); d.className="gcell"; wrap.appendChild(d); } return wrap; };
   const render=()=>{
     host.innerHTML=`<div class="center">
-      ${gameHead("CRACK THE WORD")}
+      ${gameHead("GUESS THE WORD")}
       <div class="game-clue">${N}-letter word · <em>${escHtml(c.def)}</em></div>
       ${gameMeta({lang:c.lang})}
       <div id="grid" style="margin:16px 0"></div>
