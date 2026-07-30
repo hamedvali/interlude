@@ -18,7 +18,7 @@ exactly when it's time to read or reply.
 [![Made with Python](https://img.shields.io/badge/python-3-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-zero-2ea44f)](#-how-it-works)
 [![No Dock icon](https://img.shields.io/badge/dock%20icon-none-7C4DEB)](#-how-it-works)
-[![Version](https://img.shields.io/badge/version-1.35.0-7C4DEB)](#)
+[![Version](https://img.shields.io/badge/version-1.36.0-7C4DEB)](#)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 
 <br />
@@ -33,6 +33,7 @@ exactly when it's time to read or reply.
 
 - 🧠 **Learn while you wait** — spaced-repetition flashcards (Leitner boxes 1–5) surface the words you're about to forget, and speak them aloud on demand.
 - 🖼️ **Picture memory aids** — give any word an image URL (from anywhere) and it shows on the flashcard and games as a visual mnemonic — so the picture is always one you chose and actually relevant.
+- 🎓 **"How to remember" tips** — a per-word memory lesson (hook / word-breakdown, a cognate or contrast, an example, a self-test) behind a 🎓 button next to the pronounce icon; editable per word in the deck.
 - 🎮 **Word games + Arcade** — eight quick word games (Definition Quiz, Word Scramble, Hangman, Vocab Wordle, retrieval-first **Context Gap**, **Dictation**, **Recall**, and a mini **Crossword** built from your deck) — each opens full-page from the launcher, and the retrieval games feed the same spaced-repetition boxes — plus a full-screen **Arcade** with a vendored, MIT-licensed [2048](https://github.com/gabrielecirulli/2048) that **saves and resumes mid-game** — stop halfway, pick up right where you left off.
 - 📱 **Social, in the window** — a quick pick of Instagram · X · TikTok, opened right inside the popup for a genuinely mindless glance while you wait.
 - 🎛️ **State-aware attention routing** — Interlude sees *why* Claude stopped and reacts differently: **done** (violet, counts down and closes), **needs input** (amber, closes so you can reply), **permission** (red, flashes then closes), **error** (red, stays open with the last line). Optional matching macOS chimes.
