@@ -1539,6 +1539,7 @@ function mountScramble(host){
       <div class="msg" id="smsg"></div>
       <div class="game-actions">
         <button class="btn ghost" id="sskip">Skip</button>
+        <button class="btn ghost" id="sreveal">Reveal</button>
       </div></div>`;
   const chips=Array.from(host.querySelectorAll("#sletters .lchip"));
   // Dim one scramble chip for each correctly-placed letter typed so far — but
@@ -1563,6 +1564,7 @@ function mountScramble(host){
     onMiss:()=>{ $("#smsg",host).innerHTML=`<span class="no">Not quite — the green letters stay, retype the rest.</span>`; }
   });
   $("#sskip",host).onclick=()=>{ review(c.word,false); mountScramble(host); };
+  $("#sreveal",host).onclick=()=>revealAnswer(host,c,c.word,"#smsg",()=>mountScramble(host));
 }
 
 function mountHangman(host){
@@ -1723,6 +1725,19 @@ function typeWin(host, c, msgSel, gameId, remount){
   wireSay(host,"twsay",c.word,c.lang); speak(c.word,$("#twsay",host),c.lang); fillWordImage(host,"twimg",c); wireAddImg(host,"twimgbtn",c,"twimg");
   review(c.word,true); bumpGame(gameId,"wins"); keyHandler=null; scheduleAdvance(remount,1500);
 }
+// Give-up reveal for the type-in games: fill + lock the answer boxes, show the
+// word (with audio/picture), count it as a miss, and wait for a manual "Next"
+// (no auto-advance) so the user reads it at their own pace. `answer` is the exact
+// string the boxes expect (c.word, or the inflected form for Context Gap).
+function revealAnswer(host, c, answer, msgSel, remount){
+  host.querySelectorAll(".lbox").forEach(b=>{ const ch=answer[+b.dataset.i]; if(ch) b.value=ch;
+    b.disabled=true; b.classList.remove("bad","ok"); b.classList.add("lock"); });
+  $(msgSel,host).innerHTML=`<div><span class="no">It was “${escHtml(c.word)}”.</span> ${sayBtn("rvsay")}${imgAddBtn("rvimgbtn",!!c.img)}</div>${imgSlot("rvimgslot","sm")}`;
+  wireSay(host,"rvsay",c.word,c.lang); speak(c.word,$("#rvsay",host),c.lang); fillWordImage(host,"rvimgslot",c); wireAddImg(host,"rvimgbtn",c,"rvimgslot");
+  review(c.word,false); keyHandler=null;
+  const acts=host.querySelector(".game-actions");
+  if(acts){ acts.innerHTML=`<button class="btn primary" id="rvnext">Next word</button>`; $("#rvnext",host).onclick=remount; }
+}
 
 // Context Gap — a cloze: blank the word out of its own example sentence and have
 // the user type it back. Productive recall + real context, the strongest fit for
@@ -1749,12 +1764,14 @@ function mountCloze(host){
       <div class="msg" id="cmsg"></div>
       <div class="game-actions">
         <button class="btn ghost" id="cskip">Skip</button>
+        <button class="btn ghost" id="creveal">Reveal</button>
       </div></div>`;
   letterInputs(host,"cboxes",hit,{   // the exact form blanked from the sentence
     onWin:()=>typeWin(host,c,"#cmsg","cloze",()=>mountCloze(host)),
     onMiss:()=>{ $("#cmsg",host).innerHTML=`<span class="no">Not quite — try the red letters again.</span>`; }
   });
   $("#cskip",host).onclick=()=>{ review(c.word,false); mountCloze(host); };
+  $("#creveal",host).onclick=()=>revealAnswer(host,c,hit,"#cmsg",()=>mountCloze(host));
 }
 
 // Dictation — hear the word (TTS) and type what you hear. Productive spelling
@@ -1771,6 +1788,7 @@ function mountDictate(host){
       <div class="msg" id="dmsg"></div>
       <div class="game-actions">
         <button class="btn ghost" id="dskip">Skip</button>
+        <button class="btn ghost" id="dreveal">Reveal</button>
       </div></div>`;
   wireSay(host,"dsay",c.word,c.lang);
   speak(c.word,$("#dsay",host),c.lang);      // play once on mount
@@ -1779,6 +1797,7 @@ function mountDictate(host){
     onMiss:()=>{ $("#dmsg",host).innerHTML=`<span class="no">Not quite — listen again and fix the red letters.</span>`; }
   });
   $("#dskip",host).onclick=()=>{ review(c.word,false); mountDictate(host); };
+  $("#dreveal",host).onclick=()=>revealAnswer(host,c,c.word,"#dmsg",()=>mountDictate(host));
 }
 
 // Recall — the hardest, strongest retrieval form: shown the definition, produce
@@ -1793,13 +1812,15 @@ function mountRecall(host){
       <div id="rboxes"></div>
       <div class="msg" id="rmsg"></div>
       <div class="game-actions">
-        <button class="btn ghost" id="rskip">Reveal</button>
+        <button class="btn ghost" id="rskip">Skip</button>
+        <button class="btn ghost" id="rreveal">Reveal</button>
       </div></div>`;
   letterInputs(host,"rboxes",c.word,{
     onWin:()=>typeWin(host,c,"#rmsg","recall",()=>mountRecall(host)),
     onMiss:()=>{ $("#rmsg",host).innerHTML=`<span class="no">Not quite — the green letters are right.</span>`; }
   });
-  $("#rskip",host).onclick=()=>{ $("#rmsg",host).innerHTML=`<div><span class="no">It was “${escHtml(c.word)}”.</span> ${imgAddBtn("rimgbtn",!!c.img)}</div>${imgSlot("rimg","sm")}`; wireAddImg(host,"rimgbtn",c,"rimg"); review(c.word,false); keyHandler=null; scheduleAdvance(()=>mountRecall(host),1600); };
+  $("#rskip",host).onclick=()=>{ review(c.word,false); mountRecall(host); };
+  $("#rreveal",host).onclick=()=>revealAnswer(host,c,c.word,"#rmsg",()=>mountRecall(host));
 }
 
 // Crossword — deck words interlock on shared letters; you solve the empty grid
