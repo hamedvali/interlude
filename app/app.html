@@ -864,6 +864,10 @@ function gameMeta({lang, pos, sayId, imgId, hasImg, teachId, hasMn}){
   if(teachId) parts.push(teachBtn(teachId, !!hasMn));
   return `<div class="game-meta">${parts.join("")}</div>`;
 }
+// One consistent definition/clue line for the games that show the def as a hint
+// (Scramble, Hangman, Wordle, Context Gap, Dictation). `prefix` is an optional
+// lead like "5-letter word".
+function clueLine(def, prefix){ return `<div class="game-clue">${prefix?escHtml(prefix)+" · ":""}<em>${escHtml(def||"")}</em></div>`; }
 
 // Word images — an optional per-word picture, shown as a visual memory aid only
 // where the word is already visible: flashcard front, quiz prompt, game reveals.
@@ -1545,11 +1549,13 @@ function mountQuiz(host){
       ${gameMeta({lang:c.lang, pos:c.pos, sayId:"qsay", imgId:"qimgbtn", hasImg:c.img, teachId:"qteach", hasMn:c.mnemonic})}
       ${imgSlot("qImg","sm")}
       <div id="opts"></div>
-      <div class="msg" id="qmsg"></div></div>`;
+      <div class="msg" id="qmsg"></div>
+      <div class="game-actions"><button class="btn ghost" id="qskip">Skip</button></div></div>`;
   wireSay(host,"qsay",c.word,c.lang);
   fillWordImage(host,"qImg",c);
   wireAddImg(host,"qimgbtn",c,"qImg");
   wireTeach(host,"qteach",c);
+  $("#qskip",host).onclick=()=>{ review(c.word,false); mountQuiz(host); };
   const box=$("#opts",host);
   opts.forEach((o,i)=>{
     const b=document.createElement("button"); b.className="opt";
@@ -1558,12 +1564,13 @@ function mountQuiz(host){
   });
   function choose(o,b){
     box.querySelectorAll(".opt").forEach(x=>x.disabled=true);
+    const acts=host.querySelector(".game-actions"); if(acts) acts.innerHTML="";   // drop Skip once answered
     if(o.ok){ b.classList.add("correct"); $("#qmsg",host).innerHTML=`<span class="ok">Correct.</span> ${escHtml(c.word)} — ${escHtml(c.def)}`;
       review(c.word,true); bumpGame("quiz","wins"); }
     else { b.classList.add("wrong");
       box.querySelectorAll(".opt").forEach(x=>{ if(x.textContent.includes(c.def)) x.classList.add("correct"); });
       $("#qmsg",host).innerHTML=`<span class="no">Not quite.</span> ${escHtml(c.word)} — ${escHtml(c.def)}`; review(c.word,false); }
-    keyHandler=null; scheduleAdvance(()=>mountQuiz(host), o.ok?950:1900);
+    keyHandler=null; scheduleAdvance(()=>mountQuiz(host), o.ok?ADV.quiz:ADV.lose);
   }
   keyHandler=(e)=>{ const n=parseInt(e.key); if(n>=1&&n<=opts.length){ const b=box.children[n-1]; if(b&&!b.disabled) b.click(); } };
 }
@@ -1575,8 +1582,8 @@ function mountScramble(host){
   host.innerHTML=`<div class="center">
       ${gameHead("UNSCRAMBLE")}
       <div class="letters" id="sletters">${letters.map(l=>`<span class="lchip">${escHtml(l)}</span>`).join("")}</div>
-      <p class="game-clue">${escHtml(c.def)}</p>
-      ${gameMeta({lang:c.lang})}
+      ${clueLine(c.def)}
+      ${gameMeta({lang:c.lang, pos:c.pos})}
       <div id="sboxes"></div>
       <div class="msg" id="smsg"></div>
       <div class="game-actions">
@@ -1598,11 +1605,7 @@ function mountScramble(host){
   };
   letterInputs(host,"sboxes",c.word,{
     onType:reflect,
-    onWin:()=>{
-      $("#smsg",host).innerHTML=`<div><span class="ok">${I.checkmini} ${escHtml(c.word.toUpperCase())}</span> ${sayBtn("ssay")}${imgAddBtn("simgbtn",!!c.img)}${teachBtn("steach",!!c.mnemonic)}</div>${imgSlot("simg","sm")}`;
-      wireSay(host,"ssay",c.word,c.lang); speak(c.word,$("#ssay",host),c.lang); fillWordImage(host,"simg",c); wireAddImg(host,"simgbtn",c,"simg"); wireTeach(host,"steach",c);   // hear + see it once solved
-      review(c.word,true); bumpGame("scramble","wins"); scheduleAdvance(()=>mountScramble(host),1400);
-    },
+    onWin:()=>revealCard(host,c,{msgSel:"#smsg",correct:true,gameId:"scramble",remount:()=>mountScramble(host)}),
     onMiss:()=>{ $("#smsg",host).innerHTML=`<span class="no">Not quite — the green letters stay, retype the rest.</span>`; }
   });
   $("#sskip",host).onclick=()=>{ review(c.word,false); mountScramble(host); };
@@ -1618,17 +1621,20 @@ function mountHangman(host){
     // Missed letters kept visible so you can see what you've already tried —
     // the on-screen keyboard is gone; you type on the real keyboard.
     const missed=[...guessed].filter(l=>!word.includes(l)).sort();
+    const over=won||lost;
     host.innerHTML=`<div class="center">
       ${gameHead("GUESS THE WORD")}
-      <div class="game-clue"><em>${escHtml(c.def)}</em></div>
-      ${gameMeta({lang:c.lang})}
+      ${clueLine(c.def)}
+      ${gameMeta({lang:c.lang, pos:c.pos})}
       <div class="hangman-word">${escHtml(shown)}</div>
       <div class="dots">${Array.from({length:MAX},(_,i)=>`<span class="life ${i<wrong?'gone':''}"></span>`).join("")}</div>
       <div class="wrong-strip">${missed.map(l=>`<span class="wrong-chip">${escHtml(l)}</span>`).join("")}</div>
-      <div class="game-clue">Type a letter to guess.</div>
-      <div class="msg center" id="hmsg"></div></div>`;
-    if(won){ $("#hmsg",host).innerHTML=`<div><span class="ok">Nice — you got it.</span> ${sayBtn("hsay")}${imgAddBtn("himgbtn",!!c.img)}${teachBtn("hteach",!!c.mnemonic)}</div>${imgSlot("himg","sm")}`; wireSay(host,"hsay",c.word,c.lang); speak(c.word,$("#hsay",host),c.lang); fillWordImage(host,"himg",c); wireAddImg(host,"himgbtn",c,"himg"); wireTeach(host,"hteach",c); review(c.word,true); bumpGame("hangman","wins"); keyHandler=null; scheduleAdvance(()=>mountHangman(host),1900); return; }
-    if(lost){ $("#hmsg",host).innerHTML=`<div><span class="no">The word was “${escHtml(word)}”.</span> ${sayBtn("hsay")}${imgAddBtn("himgbtn",!!c.img)}${teachBtn("hteach",!!c.mnemonic)}</div>${imgSlot("himg","sm")}`; wireSay(host,"hsay",c.word,c.lang); speak(c.word,$("#hsay",host),c.lang); fillWordImage(host,"himg",c); wireAddImg(host,"himgbtn",c,"himg"); wireTeach(host,"hteach",c); review(c.word,false); keyHandler=null; scheduleAdvance(()=>mountHangman(host),2400); return; }
+      ${over?"":`<div class="game-clue">Type a letter to guess.</div>`}
+      <div class="msg center" id="hmsg"></div>
+      ${over?"":`<div class="game-actions"><button class="btn ghost" id="hskip">Reveal &amp; skip</button></div>`}</div>`;
+    if(won){ revealCard(host,c,{msgSel:"#hmsg",correct:true,gameId:"hangman",text:"Nice — you got it.",remount:()=>mountHangman(host)}); return; }
+    if(lost){ revealCard(host,c,{msgSel:"#hmsg",correct:false,gameId:"hangman",text:`The word was “${escHtml(word)}”.`,remount:()=>mountHangman(host)}); return; }
+    $("#hskip",host).onclick=()=>revealCard(host,c,{msgSel:"#hmsg",correct:false,gameId:"hangman",text:`The word was “${escHtml(word)}”.`,remount:()=>mountHangman(host)});
   };
   draw();
   keyHandler=(e)=>{ const l=e.key.toLowerCase(); if(/^[a-z]$/.test(l)&&!guessed.has(l)){ guessed.add(l); if(!word.includes(l)) wrong++; draw(); } };
@@ -1671,22 +1677,22 @@ function mountWordle(host){
   const render=()=>{
     host.innerHTML=`<div class="center">
       ${gameHead("GUESS THE WORD")}
-      <div class="game-clue">${N}-letter word · <em>${escHtml(c.def)}</em></div>
-      ${gameMeta({lang:c.lang})}
+      ${clueLine(c.def, N+"-letter word")}
+      ${gameMeta({lang:c.lang, pos:c.pos})}
       <div id="grid" style="margin:16px 0"></div>
       ${done?"":`<div class="game-clue">Type letters · Enter to submit.</div>`}
-      <div class="msg" id="wmsg"></div></div>`;
+      <div class="msg" id="wmsg"></div>
+      ${done?"":`<div class="game-actions"><button class="btn ghost" id="wskip">Reveal &amp; skip</button></div>`}</div>`;
     const grid=$("#grid",host);
     rows.forEach(g=>grid.appendChild(gradedRow(g)));
-    if(!done){ grid.appendChild(activeRow()); for(let r=rows.length+1;r<MAX;r++) grid.appendChild(emptyRow()); }
+    if(!done){ grid.appendChild(activeRow()); for(let r=rows.length+1;r<MAX;r++) grid.appendChild(emptyRow());
+      const sk=$("#wskip",host); if(sk) sk.onclick=()=>{ done=true; revealCard(host,c,{msgSel:"#wmsg",correct:false,gameId:"wordle",text:`It was “${word}”.`,remount:()=>mountWordle(host)}); }; }
   };
   const submit=()=>{
     if(current.length!==N){ $("#wmsg",host).innerHTML=`<span class="no">Needs ${N} letters.</span>`; return; }
     const g=current; rows.push(g); current="";
-    if(g===word){ done=true; render(); $("#wmsg",host).innerHTML=`<div><span class="ok">Solved in ${rows.length}.</span> ${sayBtn("wsay")}${imgAddBtn("wimgbtn",!!c.img)}${teachBtn("wteach",!!c.mnemonic)}</div>${imgSlot("wimg","sm")}`;
-      wireSay(host,"wsay",c.word,c.lang); speak(c.word,$("#wsay",host),c.lang); fillWordImage(host,"wimg",c); wireAddImg(host,"wimgbtn",c,"wimg"); wireTeach(host,"wteach",c);
-      review(c.word,true); bumpGame("wordle","wins"); bumpGame("wordle","best",MAX-rows.length+1); keyHandler=null; scheduleAdvance(()=>mountWordle(host),2000); return; }
-    if(rows.length>=MAX){ done=true; render(); $("#wmsg",host).innerHTML=`<div><span class="no">It was “${word}”.</span> ${sayBtn("wsay")}${imgAddBtn("wimgbtn",!!c.img)}${teachBtn("wteach",!!c.mnemonic)}</div>${imgSlot("wimg","sm")}`; wireSay(host,"wsay",c.word,c.lang); speak(c.word,$("#wsay",host),c.lang); fillWordImage(host,"wimg",c); wireAddImg(host,"wimgbtn",c,"wimg"); wireTeach(host,"wteach",c); review(c.word,false); keyHandler=null; scheduleAdvance(()=>mountWordle(host),2600); return; }
+    if(g===word){ done=true; render(); revealCard(host,c,{msgSel:"#wmsg",correct:true,gameId:"wordle",text:`Solved in ${rows.length}.`,remount:()=>mountWordle(host)}); bumpGame("wordle","best",MAX-rows.length+1); return; }
+    if(rows.length>=MAX){ done=true; render(); revealCard(host,c,{msgSel:"#wmsg",correct:false,gameId:"wordle",text:`It was “${word}”.`,remount:()=>mountWordle(host)}); return; }
     render();
   };
   render();
@@ -1759,26 +1765,34 @@ function letterInputs(host, slotId, answer, opts){
   return { focus:()=>boxes[0].focus(), value:cur };
 }
 
-// Shared success reveal for the type-in word games (Context Gap, Dictation,
-// Recall): confirm the word, speak it, show its picture, credit the win, then
-// queue the next round. Mirrors the reveal used by Scramble/Wordle.
-function typeWin(host, c, msgSel, gameId, remount){
-  $(msgSel,host).innerHTML=`<div><span class="ok">${I.checkmini} ${escHtml(c.word.toUpperCase())}</span> ${sayBtn("twsay")}${imgAddBtn("twimgbtn",!!c.img)}${teachBtn("twteach",!!c.mnemonic)}</div>${imgSlot("twimg","sm")}`;
-  wireSay(host,"twsay",c.word,c.lang); speak(c.word,$("#twsay",host),c.lang); fillWordImage(host,"twimg",c); wireAddImg(host,"twimgbtn",c,"twimg"); wireTeach(host,"twteach",c);
-  review(c.word,true); bumpGame(gameId,"wins"); keyHandler=null; scheduleAdvance(remount,1500);
+// Auto-advance timings (ms) — one table instead of ad-hoc literals per game.
+const ADV = { quiz:950, win:1600, lose:2400 };
+// The single answer-reveal used by every word game. Renders "text + 🔊 + 🖼️ + 🎓 +
+// picture", wires those three, speaks the word, scores it (review), credits a win,
+// then advances. With manual:true it swaps the actions row to a single "Next word"
+// button instead of auto-advancing. o: {msgSel, correct, text?, gameId?, remount, manual?}.
+function revealCard(host, c, o){
+  const tone = o.correct ? "ok" : "no";
+  const label = (o.text!==undefined) ? o.text
+      : (o.correct ? `${I.checkmini} ${escHtml(c.word.toUpperCase())}` : `It was “${escHtml(c.word)}”.`);
+  $(o.msgSel,host).innerHTML=`<div><span class="${tone}">${label}</span> ${sayBtn("rcSay")}${imgAddBtn("rcImgBtn",!!c.img)}${teachBtn("rcTeach",!!c.mnemonic)}</div>${imgSlot("rcImg","sm")}`;
+  wireSay(host,"rcSay",c.word,c.lang); speak(c.word,$("#rcSay",host),c.lang);
+  fillWordImage(host,"rcImg",c); wireAddImg(host,"rcImgBtn",c,"rcImg"); wireTeach(host,"rcTeach",c);
+  review(c.word, !!o.correct);
+  if(o.correct && o.gameId) bumpGame(o.gameId,"wins");
+  keyHandler=null;
+  const acts=host.querySelector(".game-actions");
+  if(o.manual){
+    if(acts){ acts.innerHTML=`<button class="btn primary" id="rcNext">Next word</button>`; $("#rcNext",host).onclick=o.remount; }
+  } else { if(acts) acts.innerHTML="";   // drop stale Skip/Reveal during the countdown
+    scheduleAdvance(o.remount, o.correct ? ADV.win : ADV.lose); }
 }
-// Give-up reveal for the type-in games: fill + lock the answer boxes, show the
-// word (with audio/picture), count it as a miss, and wait for a manual "Next"
-// (no auto-advance) so the user reads it at their own pace. `answer` is the exact
-// string the boxes expect (c.word, or the inflected form for Context Gap).
+// Give-up reveal for the box games: fill + lock the answer boxes, then show the
+// reveal card as a miss and wait for a manual "Next word".
 function revealAnswer(host, c, answer, msgSel, remount){
   host.querySelectorAll(".lbox").forEach(b=>{ const ch=answer[+b.dataset.i]; if(ch) b.value=ch;
     b.disabled=true; b.classList.remove("bad","ok"); b.classList.add("lock"); });
-  $(msgSel,host).innerHTML=`<div><span class="no">It was “${escHtml(c.word)}”.</span> ${sayBtn("rvsay")}${imgAddBtn("rvimgbtn",!!c.img)}${teachBtn("rvteach",!!c.mnemonic)}</div>${imgSlot("rvimgslot","sm")}`;
-  wireSay(host,"rvsay",c.word,c.lang); speak(c.word,$("#rvsay",host),c.lang); fillWordImage(host,"rvimgslot",c); wireAddImg(host,"rvimgbtn",c,"rvimgslot"); wireTeach(host,"rvteach",c);
-  review(c.word,false); keyHandler=null;
-  const acts=host.querySelector(".game-actions");
-  if(acts){ acts.innerHTML=`<button class="btn primary" id="rvnext">Next word</button>`; $("#rvnext",host).onclick=remount; }
+  revealCard(host, c, {msgSel, correct:false, manual:true, remount});
 }
 
 // Context Gap — a cloze: blank the word out of its own example sentence and have
@@ -1800,8 +1814,8 @@ function mountCloze(host){
   host.innerHTML=`<div class="center">
       ${gameHead("FILL THE GAP")}
       <p class="cloze-sent">${sentence}</p>
-      ${c.def?`<p class="game-clue"><em>${escHtml(c.def)}</em></p>`:""}
-      ${gameMeta({lang:c.lang})}
+      ${c.def?clueLine(c.def):""}
+      ${gameMeta({lang:c.lang, pos:c.pos})}
       <div id="cboxes"></div>
       <div class="msg" id="cmsg"></div>
       <div class="game-actions">
@@ -1809,7 +1823,7 @@ function mountCloze(host){
         <button class="btn ghost" id="creveal">Reveal</button>
       </div></div>`;
   letterInputs(host,"cboxes",hit,{   // the exact form blanked from the sentence
-    onWin:()=>typeWin(host,c,"#cmsg","cloze",()=>mountCloze(host)),
+    onWin:()=>revealCard(host,c,{msgSel:"#cmsg",correct:true,gameId:"cloze",remount:()=>mountCloze(host)}),
     onMiss:()=>{ $("#cmsg",host).innerHTML=`<span class="no">Not quite — try the red letters again.</span>`; }
   });
   $("#cskip",host).onclick=()=>{ review(c.word,false); mountCloze(host); };
@@ -1824,8 +1838,8 @@ function mountDictate(host){
   host.innerHTML=`<div class="center">
       ${gameHead("LISTEN & TYPE")}
       <button class="say say-lg" id="dsay" type="button" title="Play again" aria-label="Play again">${I.volume}</button>
-      ${c.def?`<p class="game-clue"><em>${escHtml(c.def)}</em></p>`:""}
-      ${gameMeta({lang:c.lang})}
+      ${c.def?clueLine(c.def):""}
+      ${gameMeta({lang:c.lang, pos:c.pos})}
       <div id="dboxes"></div>
       <div class="msg" id="dmsg"></div>
       <div class="game-actions">
@@ -1835,7 +1849,7 @@ function mountDictate(host){
   wireSay(host,"dsay",c.word,c.lang);
   speak(c.word,$("#dsay",host),c.lang);      // play once on mount
   letterInputs(host,"dboxes",c.word,{
-    onWin:()=>typeWin(host,c,"#dmsg","dictate",()=>mountDictate(host)),
+    onWin:()=>revealCard(host,c,{msgSel:"#dmsg",correct:true,gameId:"dictate",remount:()=>mountDictate(host)}),
     onMiss:()=>{ $("#dmsg",host).innerHTML=`<span class="no">Not quite — listen again and fix the red letters.</span>`; }
   });
   $("#dskip",host).onclick=()=>{ review(c.word,false); mountDictate(host); };
@@ -1858,7 +1872,7 @@ function mountRecall(host){
         <button class="btn ghost" id="rreveal">Reveal</button>
       </div></div>`;
   letterInputs(host,"rboxes",c.word,{
-    onWin:()=>typeWin(host,c,"#rmsg","recall",()=>mountRecall(host)),
+    onWin:()=>revealCard(host,c,{msgSel:"#rmsg",correct:true,gameId:"recall",remount:()=>mountRecall(host)}),
     onMiss:()=>{ $("#rmsg",host).innerHTML=`<span class="no">Not quite — the green letters are right.</span>`; }
   });
   $("#rskip",host).onclick=()=>{ review(c.word,false); mountRecall(host); };
